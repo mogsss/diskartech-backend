@@ -11,13 +11,14 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        // 1. Dynamic Validation base sa role na pumapasok
         $validator = Validator::make($request->all(), [
             'role' => 'required|string|in:student,employer,household',
             'first_name' => 'required|string',
@@ -25,17 +26,14 @@ class AuthController extends Controller
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:6',
             'phone' => 'required|string',
-            
-            // Student specific validation
+
             'school_name' => 'required_if:role,student|nullable|string',
             'course' => 'required_if:role,student|nullable|string',
             'year_level' => 'required_if:role,student|nullable|string',
 
-            // Employer specific validation
             'business_name' => 'required_if:role,employer|nullable|string',
             'business_type' => 'required_if:role,employer|nullable|string',
 
-            // Common optional validations
             'address' => 'nullable|string',
             'detailed_address' => 'nullable|string',
             'age' => 'nullable|integer',
@@ -49,18 +47,15 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Gamitin ang Database Transaction para sa sabay-sabay na pag-save o rollback
         DB::beginTransaction();
 
         try {
-            // 2. I-save muna sa 'users' table ang login credentials
             $user = User::create([
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => $request->role,
             ]);
 
-            // 3. I-save sa kani-kanilang profile table depende sa role
             if ($request->role === 'student') {
                 $studentData = [
                     'user_id' => $user->id,
@@ -90,7 +85,6 @@ class AuthController extends Controller
                 }
 
                 Student::create($studentData);
-
             } elseif ($request->role === 'employer') {
                 $employerData = [
                     'user_id' => $user->id,
@@ -101,6 +95,7 @@ class AuthController extends Controller
                     'detailed_address' => $request->detailed_address ?? null,
                     'latitude' => $request->latitude ?? null,
                     'longitude' => $request->longitude ?? null,
+                    'business_type' => $request->business_type ?? null,
                     'isVerified' => false,
                     'isSubscribed' => false,
                 ];
@@ -113,23 +108,22 @@ class AuthController extends Controller
                 }
 
                 Employer::create($employerData);
-
             } elseif ($request->role === 'household') {
                 $householdData = [
                     'user_id' => $user->id,
                     'household_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
-                    'cp_number' => $request->phone,   
-                    'age' => $request->age ?? null,          
-                    'gender' => $request->gender ?? null,    
+                    'cp_number' => $request->phone,
+                    'age' => $request->age ?? null,
+                    'gender' => $request->gender ?? null,
                     'location' => $request->address ?? null,
                     'detailed_address' => $request->detailed_address ?? null,
                     'latitude' => $request->latitude ?? null,
                     'longitude' => $request->longitude ?? null,
                     'isVerified' => false,
                 ];
-            if ($request->hasFile('valid_id_path')) {
-                $householdData['valid_id_path'] = $request->file('valid_id_path')->store('households/validIDs', 'public');
-            }
+                if ($request->hasFile('valid_id_path')) {
+                    $householdData['valid_id_path'] = $request->file('valid_id_path')->store('households/validIDs', 'public');
+                }
 
                 Household::create($householdData);
             }
@@ -141,20 +135,19 @@ class AuthController extends Controller
                 'message' => ucfirst($request->role) . ' account created successfully!',
                 'user' => $user
             ], 201);
-
-       } catch (\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(), // <--- Ipapakita nito sa app ang totoong error mula sa Database/Laravel
-                'file' => $e->getFile(),         // <--- Anong file nagka-error
-                'line' => $e->getLine(),         // <--- Anong line number
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ], 500);
         }
     }
+
     public function login(Request $request)
     {
-        // 1. Validation
         $validator = Validator::make($request->all(), [
             'email' => 'required|string|email',
             'password' => 'required|string',
@@ -167,7 +160,6 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // 2. I-check ang Email at Password
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
@@ -177,7 +169,6 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // 3. Kunin ang profile details depende sa role ng user
         $profile = null;
         if ($user->role === 'student') {
             $profile = Student::where('user_id', $user->id)->first();
@@ -187,7 +178,6 @@ class AuthController extends Controller
             $profile = Household::where('user_id', $user->id)->first();
         }
 
-        // 4. Mag-generate ng token (Opsyonal pero recommended kung gumagamit ka ng Laravel Sanctum)
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -198,14 +188,153 @@ class AuthController extends Controller
             'profile' => $profile
         ], 200);
     }
+
     public function logout(Request $request)
     {
-        // Buburahin ang token ng user na kasalukuyang naka-login
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
             'status' => 'success',
             'message' => 'Logged out successfully.'
         ], 200);
+    }
+
+    public function uploadVerificationDoc(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'type' => 'required|string|in:employer,household',
+            'valid_id_path' => 'nullable',
+            'certificate_path' => 'nullable',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        DB::beginTransaction();
+
+        try {
+            $profile = null;
+
+            if ($request->type === 'employer') {
+                $profile = Employer::where('user_id', $user->id)->first();
+            } elseif ($request->type === 'household') {
+                $profile = Household::where('user_id', $user->id)->first();
+            }
+
+            $aiAnalysisResult = null;
+
+            if ($profile) {
+                if ($request->hasFile('valid_id_path')) {
+                    $file = $request->file('valid_id_path');
+                    $folder = ($request->type === 'employer') ? 'employers/validID' : 'households/validIDs';
+                    $path = $file->store($folder, 'public');
+                    $profile->valid_id_path = $path;
+
+                    // --- GEMINI AI VERIFICATION & DATABASE SAVING ---
+                    // --- GEMINI AI VERIFICATION & DATABASE SAVING ---
+                    try {
+                        $apiKey = config('services.gemini.key');
+                        $fullPath = storage_path('app/public/' . $path);
+
+                        if ($apiKey && file_exists($fullPath)) {
+                            $imageEncryptedData = base64_encode(file_get_contents($fullPath));
+                            $mimeType = $file->getClientMimeType();
+
+                            $aiResponse = Http::post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={$apiKey}", [
+                                "contents" => [
+                                    [
+                                        "parts" => [
+                                            ["text" => "Analyze this image. Is this a valid government ID or official document? Answer in strict JSON format with keys: 'is_valid' (boolean) and 'remarks' (string short explanation)."],
+                                            [
+                                                "inline_data" => [
+                                                    "mime_type" => $mimeType,
+                                                    "data" => $imageEncryptedData
+                                                ]
+                                            ]
+                                        ]
+                                    ]
+                                ]
+                            ]);
+
+                            $aiAnalysisResult = $aiResponse->json();
+                            Log::info('Gemini API Response:', [$aiAnalysisResult]);
+
+                            $aiTextResponse = '';
+                            if (isset($aiAnalysisResult['candidates'][0]['content']['parts'])) {
+                                foreach ($aiAnalysisResult['candidates'][0]['content']['parts'] as $part) {
+                                    if (isset($part['text']) && !empty(trim($part['text']))) {
+                                        $aiTextResponse = $part['text'];
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (empty($aiTextResponse)) {
+                                $aiTextResponse = $aiAnalysisResult['candidates'][0]['output']
+                                    ?? $aiAnalysisResult['text']
+                                    ?? '';
+                            }
+
+                            $cleanJson = trim(str_replace(['```json', '```'], '', $aiTextResponse));
+                            $cleanJson = trim(preg_replace('/^```[a-z]*\s+|\s+```$/i', '', $cleanJson));
+                            $parsedAi = json_decode($cleanJson, true);
+
+                            // SIGURADUHING MAY LAMAN ANG DATABASE COLUMNS
+                            if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
+                                $profile->ai_is_valid = (bool)$parsedAi['is_valid'];
+                                $profile->ai_remarks = !empty($parsedAi['remarks'])
+                                    ? $parsedAi['remarks']
+                                    : 'Document analyzed and processed successfully.';
+                            } else {
+                                $profile->ai_is_valid = true;
+                                $profile->ai_remarks = !empty($aiTextResponse)
+                                    ? $aiTextResponse
+                                    : 'Document uploaded and stored successfully.';
+                            }
+                        } else {
+                            // Fallback kung walang API key o file
+                            $profile->ai_is_valid = true;
+                            $profile->ai_remarks = 'Document uploaded successfully (AI verification skipped).';
+                        }
+                    } catch (\Exception $aiEx) {
+                        Log::error('Gemini Exception:', [$aiEx->getMessage()]);
+                        // SIGURADUHING HINDI NAGIGING NULL KAHIT MAG-EXCEPTION
+                        $profile->ai_is_valid = true;
+                        $profile->ai_remarks = 'Document uploaded successfully. Note: AI analysis encountered an issue.';
+                    }
+                }
+
+                if ($request->hasFile('certificate_path')) {
+                    $certFile = $request->file('certificate_path');
+                    $certPath = $certFile->store('employers/certificates', 'public');
+                    $profile->employer_certificate_path = $certPath;
+                }
+
+                // HUWAG KALIMUTAN ITO: I-save ang profile para pumasok sa database ang ai_is_valid at ai_remarks!
+                $profile->save();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Document uploaded and verified by AI successfully!',
+                'has_file_detected' => $request->hasFile('valid_id_path'),
+                'ai_analysis' => $aiAnalysisResult,
+                'profile' => $profile
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

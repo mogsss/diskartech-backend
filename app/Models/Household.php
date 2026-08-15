@@ -21,6 +21,8 @@ class Household extends Model
         'longitude',
         'isVerified',
         'valid_id_path',
+        'ai_is_valid', // <--- Idagdag ito
+        'ai_remarks',
     ];
 
     public function user()

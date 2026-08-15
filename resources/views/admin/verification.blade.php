@@ -50,8 +50,23 @@
         </div>
     </div>
 
-    <!-- Expanded Verification Queue Section (Full Width) -->
-    <div class="bg-white rounded-2xl border border-stone-200/80 shadow-sm p-6">
+    <!-- Expanded Verification Queue Section wrapped with Alpine Data -->
+    <div x-data="{ 
+        openModal: false, 
+        selectedName: '', 
+        selectedRole: '', 
+        selectedRef: '', 
+        selectedValid: '', 
+        selectedRemarks: '',
+        showReview(name, role, ref, valid, remarks) {
+            this.selectedName = name;
+            this.selectedRole = role;
+            this.selectedRef = ref;
+            this.selectedValid = valid;
+            this.selectedRemarks = remarks;
+            this.openModal = true;
+        }
+    }" class="bg-white rounded-2xl border border-stone-200/80 shadow-sm p-6 relative">
         <div class="flex justify-between items-center mb-6">
             <h3 class="font-bold text-slate-900 text-base">Verification queue</h3>
             <div class="flex items-center space-x-2">
@@ -82,6 +97,8 @@
                             $isComplete = false;
                             $referenceText = 'N/A';
                             $applicantName = $user->email;
+                            $aiIsValid = null;
+                            $aiRemarks = 'No AI analysis available yet.';
 
                             if ($user->role === 'student') {
                                 $profile = $user->studentProfile;
@@ -95,12 +112,16 @@
                                 $isComplete = ($docsCountText === '2 of 2');
                                 $referenceText = optional($profile)->employer_name ?? 'Business Name';
                                 $applicantName = optional($profile)->hirer_name ?? $user->email;
+                                $aiIsValid = optional($profile)->ai_is_valid;
+                                $aiRemarks = optional($profile)->ai_remarks ?? 'No remarks.';
                             } elseif ($user->role === 'household') {
                                 $profile = $user->householdProfile;
                                 $docsCountText = optional($profile)->docs_count ?? '0 of 1';
                                 $isComplete = ($docsCountText === '1 of 1');
-                                $referenceText = optional($profile)->location ?? 'Household Location';
+                                $referenceText = optional($profile)->household_name ?? '';
                                 $applicantName = optional($profile)->household_name ?? $user->email;
+                                $aiIsValid = optional($profile)->ai_is_valid;
+                                $aiRemarks = optional($profile)->ai_remarks ?? 'No remarks.';
                             }
                         @endphp
 
@@ -122,7 +143,11 @@
                                 @else
                                     <button disabled class="bg-stone-200 text-stone-400 font-medium text-[11px] px-3 py-1.5 rounded-lg cursor-not-allowed">Approve</button>
                                 @endif
-                                <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-medium text-[11px] px-3 py-1.5 rounded-lg transition">Review</button>
+                                
+                                <!-- Direct Function Call to Open Modal -->
+                                <button @click="showReview('{{ addslashes($applicantName) }}', '{{ ucfirst($user->role) }}', '{{ addslashes($referenceText) }}', '{{ $aiIsValid }}', '{{ addslashes($aiRemarks) }}')" class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-medium text-[11px] px-3 py-1.5 rounded-lg transition">
+                                    Review
+                                </button>
                             </td>
                         </tr>
                     @empty
@@ -134,6 +159,59 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+
+        <!-- AI Review Modal inside x-data scope -->
+        <div x-show="openModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div @click.away="openModal = false" class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl relative text-left">
+                <div class="flex justify-between items-center mb-4 border-b pb-3">
+                    <h3 class="font-bold text-slate-900 text-lg">Verification & AI Analysis Review</h3>
+                    <button @click="openModal = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
+                </div>
+
+                <div class="space-y-4 text-sm text-slate-700">
+                    <div>
+                        <span class="font-semibold text-slate-400 block text-xs uppercase">Applicant Name</span>
+                        <p class="text-base font-bold text-slate-900" x-text="selectedName"></p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="font-semibold text-slate-400 block text-xs uppercase">Role Type</span>
+                            <p class="font-medium text-slate-800" x-text="selectedRole"></p>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-400 block text-xs uppercase">Reference / Business</span>
+                            <p class="font-medium text-slate-800" x-text="selectedRef"></p>
+                        </div>
+                    </div>
+
+                    <!-- AI Response Section -->
+                    <div class="bg-stone-50 border border-stone-200 p-4 rounded-xl mt-4">
+                        <h4 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1">
+                            🤖 Gemini AI Verification Result
+                        </h4>
+                        
+                        <div class="mb-2">
+                            <span class="text-xs font-semibold">AI Recommendation: </span>
+                            <template x-if="selectedValid === '1' || selectedValid === true">
+                                <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-bold">✅ Valid ID / Document</span>
+                            </template>
+                            <template x-if="selectedValid === '0' || selectedValid === false || selectedValid === '' || selectedValid === 'null'">
+                                <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-xs font-bold">⚠️ Warning / Needs Manual Check</span>
+                            </template>
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-semibold text-slate-500 block mb-1">AI Remarks / Explanation:</span>
+                            <p class="text-xs text-slate-700 bg-white p-3 rounded-lg border border-stone-100 italic" x-text="selectedRemarks"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end space-x-2">
+                    <button @click="openModal = false" class="bg-stone-200 hover:bg-stone-300 text-slate-700 font-medium text-xs px-4 py-2 rounded-xl transition">Close</button>
+                </div>
+            </div>
         </div>
     </div>
 </x-admin-layout>

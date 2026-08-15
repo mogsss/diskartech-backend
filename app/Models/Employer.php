@@ -20,9 +20,12 @@ class Employer extends Model
         'detailed_address',  // <--- Idinagdag para sa detailed address
         'latitude',
         'longitude',
+        'business_type',
         'isVerified',        // <--- Idinagdag para sa boolean verification
         'isSubscribed',      // <--- Idinagdag para sa subscription status
         'status',            // <--- Kasama na rin kung ginagamit mo ito
+        'ai_is_valid', // <--- Idagdag ito
+        'ai_remarks',
     ];
     public function getDocsCountAttribute()
         {
