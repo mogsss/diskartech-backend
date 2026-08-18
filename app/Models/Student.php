@@ -19,23 +19,33 @@ class Student extends Model
         'school_id',
         'coe',
         'skillset',
+        'available_days',
+        'time_slot',
         'year_level',
         'contact_number',
         'contact_person',
-        'age',              // <--- Idagdag ito
-        'gender',           // <--- Idagdag ito
-        'location',         // <--- Idagdag ito (para sa address)
-        'detailed_address', // <--- Idagdag ito
+        'age',            
+        'gender',           
+        'location',        
+        'detailed_address', 
         'latitude',
         'longitude',
         'isVerified',
         'status',
+        'avatar'
+    ];
+
+    // 👇 Idagdag ito para sa JSON casting ng available_days
+    protected $casts = [
+        'available_days' => 'array',
+        'skillset' => 'array',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
     }
+
     public function getDocsCountAttribute()
     {
         $documents = [
@@ -49,6 +59,7 @@ class Student extends Model
 
         return "{$uploadedCount} of {$totalDocs}";
     }
+
     public function applications()
     {
         return $this->hasMany(JobApplication::class);

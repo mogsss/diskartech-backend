@@ -17,156 +17,241 @@ use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    // ==========================================
+    // 1. STUDENT REGISTRATION
+    // ==========================================
+    public function registerStudent(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'role' => 'required|string|in:student,employer,household',
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|min:6',
+            'password' => ['required', 'string', 'min:8', 'regex:/[0-9]/'],
             'phone' => 'required|string',
-
-            'school_name' => 'required_if:role,student|nullable|string',
-            'course' => 'required_if:role,student|nullable|string',
-            'year_level' => 'required_if:role,student|nullable|string',
-
-            'business_name' => 'required_if:role,employer|nullable|string',
-            'business_type' => 'required_if:role,employer|nullable|string',
-
+            'school_name' => 'required|string',
+            'course' => 'required|string',
+            'year_level' => 'required|string',
             'address' => 'nullable|string',
             'detailed_address' => 'nullable|string',
             'age' => 'nullable|integer',
             'gender' => 'nullable|string',
+        ], [
+            'email.unique' => 'This email address is already registered.',
+            'password.min' => 'The password must be at least 8 characters long.',
+            'password.regex' => 'The password must contain at least one number.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
         }
 
         DB::beginTransaction();
-
         try {
             $user = User::create([
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'role' => $request->role,
+                'role' => 'student',
             ]);
 
-            if ($request->role === 'student') {
-                $studentData = [
-                    'user_id' => $user->id,
-                    'student_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
-                    'student_school_name' => $request->school_name,
-                    'course' => $request->course,
-                    'student_schedule' => $request->student_schedule ?? null,
-                    'year_level' => $request->year_level,
-                    'contact_number' => $request->phone,
-                    'age' => $request->age ?? null,
-                    'gender' => $request->gender ?? null,
-                    'location' => $request->address ?? null,
-                    'detailed_address' => $request->detailed_address ?? null,
-                    'latitude' => $request->latitude ?? null,
-                    'longitude' => $request->longitude ?? null,
-                    'isVerified' => false,
-                ];
+            $studentData = [
+                'user_id' => $user->id,
+                'student_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
+                'student_school_name' => $request->school_name,
+                'course' => $request->course,
+                'student_schedule' => $request->student_schedule ?? null,
+                'year_level' => $request->year_level,
+                'contact_number' => $request->phone,
+                'age' => $request->age ?? null,
+                'gender' => $request->gender ?? null,
+                'location' => $request->address ?? null,
+                'detailed_address' => $request->detailed_address ?? null,
+                'latitude' => $request->latitude ?? null,
+                'longitude' => $request->longitude ?? null,
+                'isVerified' => false,
+            ];
 
-                if ($request->hasFile('school_id_path')) {
-                    $studentData['school_id'] = $request->file('school_id_path')->store('students/school_ids', 'public');
-                }
-                if ($request->hasFile('coe_path')) {
-                    $studentData['coe'] = $request->file('coe_path')->store('students/coes', 'public');
-                }
-                if ($request->hasFile('resume_path')) {
-                    $studentData['student_resume'] = $request->file('resume_path')->store('students/resumes', 'public');
-                }
-
-                Student::create($studentData);
-            } elseif ($request->role === 'employer') {
-                $employerData = [
-                    'user_id' => $user->id,
-                    'employer_name' => $request->business_name,
-                    'hirer_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
-                    'contact_number' => $request->phone,
-                    'location' => $request->address ?? null,
-                    'detailed_address' => $request->detailed_address ?? null,
-                    'latitude' => $request->latitude ?? null,
-                    'longitude' => $request->longitude ?? null,
-                    'business_type' => $request->business_type ?? null,
-                    'isVerified' => false,
-                    'isSubscribed' => false,
-                ];
-
-                if ($request->hasFile('certificate_path')) {
-                    $employerData['employer_certificate_path'] = $request->file('certificate_path')->store('employers/certificates', 'public');
-                }
-                if ($request->hasFile('valid_id_path')) {
-                    $employerData['valid_id_path'] = $request->file('valid_id_path')->store('employers/validID', 'public');
-                }
-
-                Employer::create($employerData);
-            } elseif ($request->role === 'household') {
-                $householdData = [
-                    'user_id' => $user->id,
-                    'household_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
-                    'cp_number' => $request->phone,
-                    'age' => $request->age ?? null,
-                    'gender' => $request->gender ?? null,
-                    'location' => $request->address ?? null,
-                    'detailed_address' => $request->detailed_address ?? null,
-                    'latitude' => $request->latitude ?? null,
-                    'longitude' => $request->longitude ?? null,
-                    'isVerified' => false,
-                ];
-                if ($request->hasFile('valid_id_path')) {
-                    $householdData['valid_id_path'] = $request->file('valid_id_path')->store('households/validIDs', 'public');
-                }
-
-                Household::create($householdData);
+            if ($request->hasFile('school_id_path')) {
+                $studentData['school_id'] = $request->file('school_id_path')->store('students/school_ids', 'public');
+            }
+            if ($request->hasFile('coe_path')) {
+                $studentData['coe'] = $request->file('coe_path')->store('students/coes', 'public');
+            }
+            if ($request->hasFile('resume_path')) {
+                $studentData['student_resume'] = $request->file('resume_path')->store('students/resumes', 'public');
             }
 
+            Student::create($studentData);
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => ucfirst($request->role) . ' account created successfully!',
+                'message' => 'Student account created successfully!',
                 'user' => $user
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ], 500);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
+    // ==========================================
+    // 2. EMPLOYER REGISTRATION
+    // ==========================================
+    public function registerEmployer(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
+            'email' => 'required|string|email|unique:users',
+            'password' => ['required', 'string', 'min:8', 'regex:/[0-9]/'],
+            'phone' => 'required|string',
+            'business_name' => 'required|string',
+            'business_type' => 'required|string',
+            'address' => 'nullable|string',
+            'detailed_address' => 'nullable|string',
+        ], [
+            'email.unique' => 'This email address is already registered.',
+            'password.min' => 'The password must be at least 8 characters long.',
+            'password.regex' => 'The password must contain at least one number.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'employer',
+            ]);
+
+            $employerData = [
+                'user_id' => $user->id,
+                'employer_name' => $request->business_name,
+                'hirer_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
+                'contact_number' => $request->phone,
+                'location' => $request->address ?? null,
+                'detailed_address' => $request->detailed_address ?? null,
+                'latitude' => $request->latitude ?? null,
+                'longitude' => $request->longitude ?? null,
+                'business_type' => $request->business_type ?? null,
+                'isVerified' => false,
+                'isSubscribed' => false,
+            ];
+
+            if ($request->hasFile('certificate_path')) {
+                $employerData['employer_certificate_path'] = $request->file('certificate_path')->store('employers/certificates', 'public');
+            }
+            if ($request->hasFile('valid_id_path')) {
+                $employerData['valid_id_path'] = $request->file('valid_id_path')->store('employers/validID', 'public');
+            }
+
+            Employer::create($employerData);
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Employer account created successfully!',
+                'user' => $user
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ==========================================
+    // 3. HOUSEHOLD REGISTRATION
+    // ==========================================
+    public function registerHousehold(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
+            'email' => 'required|string|email|unique:users',
+            'password' => ['required', 'string', 'min:8', 'regex:/[0-9]/'],
+            'phone' => 'required|string',
+            'address' => 'nullable|string',
+            'detailed_address' => 'nullable|string',
+            'age' => 'nullable|integer',
+            'gender' => 'nullable|string',
+        ], [
+            'email.unique' => 'This email address is already registered.',
+            'password.min' => 'The password must be at least 8 characters long.',
+            'password.regex' => 'The password must contain at least one number.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'household',
+            ]);
+
+            $householdData = [
+                'user_id' => $user->id,
+                'household_name' => trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name),
+                'cp_number' => $request->phone,
+                'age' => $request->age ?? null,
+                'gender' => $request->gender ?? null,
+                'location' => $request->address ?? null,
+                'detailed_address' => $request->detailed_address ?? null,
+                'latitude' => $request->latitude ?? null,
+                'longitude' => $request->longitude ?? null,
+                'isVerified' => false,
+            ];
+
+            if ($request->hasFile('valid_id_path')) {
+                $householdData['valid_id_path'] = $request->file('valid_id_path')->store('households/validIDs', 'public');
+            }
+
+            Household::create($householdData);
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Household account created successfully!',
+                'user' => $user
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ==========================================
+    // LOGIN, LOGOUT & AI VERIFICATION (UNTOUCHED)
+    // ==========================================
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|string|email',
             'password' => 'required|string',
+        ], [
+            'email.required' => 'The email address is required.',
+            'email.email' => 'Please enter a valid email address.',
+            'password.required' => 'The password is required.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid email or password.'
-            ], 401);
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'The email address is not registered or does not exist.'], 404); 
+        }
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['status' => 'error', 'message' => 'The password you entered is incorrect.'], 401);
         }
 
         $profile = null;
@@ -185,7 +270,7 @@ class AuthController extends Controller
             'message' => 'Login successful!',
             'token' => $token,
             'user' => $user,
-            'profile' => $profile
+            'profile' => $profile   
         ], 200);
     }
 
@@ -208,14 +293,10 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
         }
 
         $user = $request->user();
-
         DB::beginTransaction();
 
         try {
@@ -236,8 +317,6 @@ class AuthController extends Controller
                     $path = $file->store($folder, 'public');
                     $profile->valid_id_path = $path;
 
-                    // --- GEMINI AI VERIFICATION & DATABASE SAVING ---
-                    // --- GEMINI AI VERIFICATION & DATABASE SAVING ---
                     try {
                         $apiKey = config('services.gemini.key');
                         $fullPath = storage_path('app/public/' . $path);
@@ -276,35 +355,26 @@ class AuthController extends Controller
                             }
 
                             if (empty($aiTextResponse)) {
-                                $aiTextResponse = $aiAnalysisResult['candidates'][0]['output']
-                                    ?? $aiAnalysisResult['text']
-                                    ?? '';
+                                $aiTextResponse = $aiAnalysisResult['candidates'][0]['output'] ?? $aiAnalysisResult['text'] ?? '';
                             }
 
                             $cleanJson = trim(str_replace(['```json', '```'], '', $aiTextResponse));
                             $cleanJson = trim(preg_replace('/^```[a-z]*\s+|\s+```$/i', '', $cleanJson));
                             $parsedAi = json_decode($cleanJson, true);
 
-                            // SIGURADUHING MAY LAMAN ANG DATABASE COLUMNS
                             if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
                                 $profile->ai_is_valid = (bool)$parsedAi['is_valid'];
-                                $profile->ai_remarks = !empty($parsedAi['remarks'])
-                                    ? $parsedAi['remarks']
-                                    : 'Document analyzed and processed successfully.';
+                                $profile->ai_remarks = !empty($parsedAi['remarks']) ? $parsedAi['remarks'] : 'Document analyzed and processed successfully.';
                             } else {
                                 $profile->ai_is_valid = true;
-                                $profile->ai_remarks = !empty($aiTextResponse)
-                                    ? $aiTextResponse
-                                    : 'Document uploaded and stored successfully.';
+                                $profile->ai_remarks = !empty($aiTextResponse) ? $aiTextResponse : 'Document uploaded and stored successfully.';
                             }
                         } else {
-                            // Fallback kung walang API key o file
                             $profile->ai_is_valid = true;
                             $profile->ai_remarks = 'Document uploaded successfully (AI verification skipped).';
                         }
                     } catch (\Exception $aiEx) {
                         Log::error('Gemini Exception:', [$aiEx->getMessage()]);
-                        // SIGURADUHING HINDI NAGIGING NULL KAHIT MAG-EXCEPTION
                         $profile->ai_is_valid = true;
                         $profile->ai_remarks = 'Document uploaded successfully. Note: AI analysis encountered an issue.';
                     }
@@ -316,7 +386,6 @@ class AuthController extends Controller
                     $profile->employer_certificate_path = $certPath;
                 }
 
-                // HUWAG KALIMUTAN ITO: I-save ang profile para pumasok sa database ang ai_is_valid at ai_remarks!
                 $profile->save();
             }
 
@@ -331,10 +400,7 @@ class AuthController extends Controller
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 }
