@@ -28,6 +28,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard Data
     Route::get('/dashboard-data', [DashboardController::class, 'getDashboardData']);
 
+    // User Profile para sa Verification Status (Dito dapat nakalagay)
+    Route::get('/user/profile', [AuthController::class, 'getUserProfile']);
 
     // Student Specific Routes (Profile at Availability)
     Route::get('/student/profile', [StudentController::class, 'getProfile']);

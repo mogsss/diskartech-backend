@@ -1,112 +1,89 @@
 <x-admin-layout>
-    <!-- Top Header Title Change -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const headerTitle = document.querySelector('header h2');
-            if(headerTitle) headerTitle.textContent = "Users";
-        });
-    </script>
+    @push('header-title')
+        Users
+    @endpush
 
     <!-- Accounts Container -->
     <div class="bg-white rounded-2xl border border-stone-200/80 shadow-sm p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h3 class="font-bold text-slate-900 text-base">Accounts</h3>
             
-            <!-- Filter Buttons -->
-            <div class="flex items-center space-x-2 text-xs font-semibold">
-                <button onclick="filterUsers('all')" id="btn-all" class="px-3.5 py-1.5 rounded-xl bg-red-700 text-white transition shadow-sm">All</button>
-                <button onclick="filterUsers('student')" id="btn-student" class="px-3.5 py-1.5 rounded-xl bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 transition">Students</button>
-                <button onclick="filterUsers('employer')" id="btn-employer" class="px-3.5 py-1.5 rounded-xl bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 transition">Employers</button>
-                <button onclick="filterUsers('household')" id="btn-household" class="px-3.5 py-1.5 rounded-xl bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 transition">Household</button>
-            </div>
+            <!-- Search Bar & Dropdown Filter Form -->
+            <form method="GET" action="{{ route('admin.users') }}" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                
+                <!-- Search Input -->
+                <div class="relative">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search name or email..." 
+                        class="w-full sm:w-64 bg-[#F2EDE4] text-xs rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-700 placeholder-slate-400 border-0">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </span>
+                </div>
+
+                <!-- Dropdown Filter para sa Role -->
+                <select name="role" onchange="this.form.submit()" 
+                    class="bg-[#F2EDE4] text-xs rounded-xl px-4 py-2 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-700 border-0 font-semibold cursor-pointer">
+                    <option value="">All Roles</option>
+                    <option value="student" {{ request('role') === 'student' ? 'selected' : '' }}>Students</option>
+                    <option value="employer" {{ request('role') === 'employer' ? 'selected' : '' }}>Employers</option>
+                    <option value="household" {{ request('role') === 'household' ? 'selected' : '' }}>Household</option>
+                </select>
+
+                <!-- I-retain ang search query kapag nag-filter, o vice versa -->
+                @if(request('search'))
+                    <input type="hidden" name="search" value="{{ request('search') }}">
+                @endif
+            </form>
         </div>
 
         <div class="divide-y divide-stone-100 text-xs" id="users-list">
-            <!-- Row 1: Student -->
-            <div class="py-4 flex items-center justify-between hover:bg-stone-50/50 px-2 rounded-xl transition user-row" data-category="student">
-                <div>
-                    <h4 class="font-bold text-slate-900 text-sm">Junnyl P. Bautista</h4>
-                    <p class="text-slate-500 mt-0.5">Student</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="bg-emerald-50 text-emerald-600 font-semibold px-3 py-1 rounded-lg">Active</span>
-                    <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition">Suspend</button>
-                </div>
-            </div>
+            @forelse($users as $user)
+                @php
+                    // Kunin ang profile batay sa role ng user
+                    $profile = match ($user->role) {
+                        'student' => $user->studentProfile,
+                        'employer' => $user->employerProfile,
+                        'household' => $user->householdProfile,
+                        default => null,
+                    };
 
-            <!-- Row 2: Student -->
-            <div class="py-4 flex items-center justify-between hover:bg-stone-50/50 px-2 rounded-xl transition user-row" data-category="student">
-                <div>
-                    <h4 class="font-bold text-slate-900 text-sm">Marites A. Dela Cruz</h4>
-                    <p class="text-slate-500 mt-0.5">Student</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="bg-emerald-50 text-emerald-600 font-semibold px-3 py-1 rounded-lg">Active</span>
-                    <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition">Suspend</button>
-                </div>
-            </div>
+                    $userName = match ($user->role) {
+                        'student' => optional($profile)->student_name ?? $user->email,
+                        'employer' => optional($profile)->hirer_name ?? $user->email,
+                        'household' => optional($profile)->household_name ?? $user->email,
+                        default => $user->name ?? $user->email,
+                    };
 
-            <!-- Row 3: Employer -->
-            <div class="py-4 flex items-center justify-between hover:bg-stone-50/50 px-2 rounded-xl transition user-row" data-category="employer">
-                <div>
-                    <h4 class="font-bold text-slate-900 text-sm">Kape Marfrancisco</h4>
-                    <p class="text-slate-500 mt-0.5">Employer</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="bg-emerald-50 text-emerald-600 font-semibold px-3 py-1 rounded-lg">Active</span>
-                    <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition">Suspend</button>
-                </div>
-            </div>
+                    $isVerified = optional($profile)->isVerified == 1;
+                @endphp
 
-            <!-- Row 4: Employer -->
-            <div class="py-4 flex items-center justify-between hover:bg-stone-50/50 px-2 rounded-xl transition user-row" data-category="employer">
-                <div>
-                    <h4 class="font-bold text-slate-900 text-sm">Lutong Bahay PH</h4>
-                    <p class="text-slate-500 mt-0.5">Employer</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="bg-rose-50 text-rose-600 font-semibold px-3 py-1 rounded-lg">Suspended</span>
-                    <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition">Reactivate</button>
-                </div>
-            </div>
+                <div class="py-4 flex items-center justify-between hover:bg-stone-50/50 px-2 rounded-xl transition user-row">
+                    <div>
+                        <h4 class="font-bold text-slate-900 text-sm">{{ $userName }}</h4>
+                        <p class="text-slate-500 mt-0.5">{{ ucfirst($user->role) }} · <span class="text-slate-400">{{ $user->email }}</span></p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        @if($isVerified)
+                            <span class="bg-emerald-50 text-emerald-600 font-semibold px-3 py-1 rounded-lg">Active</span>
+                        @else
+                            <span class="bg-amber-50 text-amber-600 font-semibold px-3 py-1 rounded-lg">Unverified</span>
+                        @endif
 
-            <!-- Row 5: Household (Dagdag sample para sa bagong filter) -->
-            <div class="py-4 flex items-center justify-between hover:bg-stone-50/50 px-2 rounded-xl transition user-row" data-category="household">
-                <div>
-                    <h4 class="font-bold text-slate-900 text-sm">Aling Nena</h4>
-                    <p class="text-slate-500 mt-0.5">Household</p>
+                        <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition">
+                            Manage
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <span class="bg-emerald-50 text-emerald-600 font-semibold px-3 py-1 rounded-lg">Active</span>
-                    <button class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition">Suspend</button>
+            @empty
+                <div class="py-12 text-center text-slate-400">
+                    Wala pang rehistradong users o walang tumutugma sa iyong hinahanap.
                 </div>
-            </div>
+            @endforelse
+        </div>
+
+        <!-- Laravel Pagination Links (Para sa limit na 10 users bawat page) -->
+        <div class="mt-6 pt-4 border-t border-stone-100">
+            {{ $users->links() }}
         </div>
     </div>
-
-    <!-- JavaScript para sa Filter Buttons -->
-    <script>
-        function filterUsers(category) {
-            // I-update ang active button styles
-            const buttons = ['all', 'student', 'employer', 'household'];
-            buttons.forEach(cat => {
-                const btn = document.getElementById('btn-' + cat);
-                if (cat === category) {
-                    btn.className = "px-3.5 py-1.5 rounded-xl bg-red-700 text-white transition shadow-sm";
-                } else {
-                    btn.className = "px-3.5 py-1.5 rounded-xl bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 transition";
-                }
-            });
-
-            // I-filter ang mga rows
-            const rows = document.querySelectorAll('.user-row');
-            rows.forEach(row => {
-                if (category === 'all' || row.getAttribute('data-category') === category) {
-                    row.style.display = 'flex';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        }
-    </script>
 </x-admin-layout>

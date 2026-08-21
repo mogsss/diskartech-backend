@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\AnalyzeVerificationDocument; // 👈 Na-import na natin ang Job dito
 
 class AuthController extends Controller
 {
@@ -227,7 +227,7 @@ class AuthController extends Controller
     }
 
     // ==========================================
-    // LOGIN, LOGOUT & AI VERIFICATION (UNTOUCHED)
+    // LOGIN & LOGOUT
     // ==========================================
     public function login(Request $request)
     {
@@ -247,7 +247,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'The email address is not registered or does not exist.'], 404); 
+            return response()->json(['status' => 'error', 'message' => 'The email address is not registered or does not exist.'], 404);
         }
 
         if (!Hash::check($request->password, $user->password)) {
@@ -270,7 +270,7 @@ class AuthController extends Controller
             'message' => 'Login successful!',
             'token' => $token,
             'user' => $user,
-            'profile' => $profile   
+            'profile' => $profile
         ], 200);
     }
 
@@ -284,12 +284,15 @@ class AuthController extends Controller
         ], 200);
     }
 
+    // ==========================================
+    // VERIFICATION DOCUMENT UPLOAD (NA MAY BACKGROUND JOB)
+    // ==========================================
     public function uploadVerificationDoc(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'type' => 'required|string|in:employer,household',
-            'valid_id_path' => 'nullable',
-            'certificate_path' => 'nullable',
+            'valid_id_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
+            'certificate_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
         ]);
 
         if ($validator->fails()) {
@@ -308,99 +311,63 @@ class AuthController extends Controller
                 $profile = Household::where('user_id', $user->id)->first();
             }
 
-            $aiAnalysisResult = null;
-
             if ($profile) {
+                // 1. PROSESO PARA SA VALID ID
                 if ($request->hasFile('valid_id_path')) {
                     $file = $request->file('valid_id_path');
                     $folder = ($request->type === 'employer') ? 'employers/validID' : 'households/validIDs';
                     $path = $file->store($folder, 'public');
+                    
                     $profile->valid_id_path = $path;
+                    $profile->isVerified = 0;
+                    $profile->rejection_reason = null;
+                    $profile->save();
 
-                    try {
-                        $apiKey = config('services.gemini.key');
-                        $fullPath = storage_path('app/public/' . $path);
-
-                        if ($apiKey && file_exists($fullPath)) {
-                            $imageEncryptedData = base64_encode(file_get_contents($fullPath));
-                            $mimeType = $file->getClientMimeType();
-
-                            $aiResponse = Http::post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={$apiKey}", [
-                                "contents" => [
-                                    [
-                                        "parts" => [
-                                            ["text" => "Analyze this image. Is this a valid government ID or official document? Answer in strict JSON format with keys: 'is_valid' (boolean) and 'remarks' (string short explanation)."],
-                                            [
-                                                "inline_data" => [
-                                                    "mime_type" => $mimeType,
-                                                    "data" => $imageEncryptedData
-                                                ]
-                                            ]
-                                        ]
-                                    ]
-                                ]
-                            ]);
-
-                            $aiAnalysisResult = $aiResponse->json();
-                            Log::info('Gemini API Response:', [$aiAnalysisResult]);
-
-                            $aiTextResponse = '';
-                            if (isset($aiAnalysisResult['candidates'][0]['content']['parts'])) {
-                                foreach ($aiAnalysisResult['candidates'][0]['content']['parts'] as $part) {
-                                    if (isset($part['text']) && !empty(trim($part['text']))) {
-                                        $aiTextResponse = $part['text'];
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (empty($aiTextResponse)) {
-                                $aiTextResponse = $aiAnalysisResult['candidates'][0]['output'] ?? $aiAnalysisResult['text'] ?? '';
-                            }
-
-                            $cleanJson = trim(str_replace(['```json', '```'], '', $aiTextResponse));
-                            $cleanJson = trim(preg_replace('/^```[a-z]*\s+|\s+```$/i', '', $cleanJson));
-                            $parsedAi = json_decode($cleanJson, true);
-
-                            if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
-                                $profile->ai_is_valid = (bool)$parsedAi['is_valid'];
-                                $profile->ai_remarks = !empty($parsedAi['remarks']) ? $parsedAi['remarks'] : 'Document analyzed and processed successfully.';
-                            } else {
-                                $profile->ai_is_valid = true;
-                                $profile->ai_remarks = !empty($aiTextResponse) ? $aiTextResponse : 'Document uploaded and stored successfully.';
-                            }
-                        } else {
-                            $profile->ai_is_valid = true;
-                            $profile->ai_remarks = 'Document uploaded successfully (AI verification skipped).';
-                        }
-                    } catch (\Exception $aiEx) {
-                        Log::error('Gemini Exception:', [$aiEx->getMessage()]);
-                        $profile->ai_is_valid = true;
-                        $profile->ai_remarks = 'Document uploaded successfully. Note: AI analysis encountered an issue.';
-                    }
+                    // job Dispatch
+                    AnalyzeVerificationDocument::dispatch($profile, $path, $file->getClientMimeType(), 'valid_id');
                 }
 
-                if ($request->hasFile('certificate_path')) {
+                // 2. PROSESO PARA SA BUSINESS CERTIFICATE / PERMIT (Employer lang)
+                if ($request->type === 'employer' && $request->hasFile('certificate_path')) {
                     $certFile = $request->file('certificate_path');
                     $certPath = $certFile->store('employers/certificates', 'public');
+                    
                     $profile->employer_certificate_path = $certPath;
-                }
+                    $profile->isVerified = 0;
+                    $profile->rejection_reason = null;
+                    $profile->save();
 
-                $profile->save();
+                    // I-dispatch sa Background Job ang Certificate AI analysis
+                    AnalyzeVerificationDocument::dispatch($profile, $certPath, $certFile->getClientMimeType(), 'certificate');
+                }
             }
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Document uploaded and verified by AI successfully!',
-                'has_file_detected' => $request->hasFile('valid_id_path'),
-                'ai_analysis' => $aiAnalysisResult,
+                'message' => 'Documents uploaded successfully! Processing verification in background.',
                 'profile' => $profile
             ], 200);
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    // ==========================================
+    // GET USER PROFILE (PARA SA REAL-TIME STATUS)
+    // ==========================================
+    public function getUserProfile(Request $request)
+    {
+        $user = $request->user();
+        
+        $profile = $user->householdProfile ?? $user->employerProfile;
+
+        return response()->json([
+            'status' => 'success',
+            'profile' => $profile
+        ], 200);
     }
 }
