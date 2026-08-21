@@ -28,7 +28,6 @@ class DashboardController extends Controller
             'status' => 'success',
             'user' => $user,
             'profile' => $profile,
-            // Pwede mo nang idagdag dito ang iba pang data tulad ng stats o posted jobs balang araw
         ], 200);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Student;
+use App\Models\Job;
 
 class StudentController extends Controller
 {
@@ -132,5 +133,74 @@ class StudentController extends Controller
         }
 
         return response()->json(['status' => 'error', 'message' => 'No file uploaded'], 400);
+    }
+    // Kunin ang mga malalapit na trabaho batay sa 5km radius (Haversine Formula)
+    public function getNearbyJobs(Request $request)
+    {
+        $user = $request->user();
+        $student = Student::where('user_id', $user->id)->first();
+
+        if (!$student) {
+            return response()->json(['status' => 'error', 'message' => 'Student profile not found'], 404);
+        }
+
+        $studentLat = $student->latitude ?? null;
+        $studentLong = $student->longitude ?? null;
+
+        if (!$studentLat || !$studentLong) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Student location is not set in your profile.'
+            ], 422);
+        }
+
+        $radius = 5;
+
+        $nearbyJobs = \App\Models\Job::with(['household', 'employer']) // 👈 Dito
+            ->selectRaw(
+                "*, 
+            (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
+                [$studentLat, $studentLong, $studentLat]
+            )
+            ->where('status', 'active')
+            ->having("distance", "<=", $radius)
+            ->orderBy('distance', 'asc')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'count' => $nearbyJobs->count(),
+            'jobs' => $nearbyJobs,
+        ], 200);
+    }
+
+    public function getAllJobs(Request $request)
+    {
+        $user = $request->user();
+        $student = Student::where('user_id', $user->id)->first();
+
+        if (!$student) {
+            return response()->json(['status' => 'error', 'message' => 'Student profile not found'], 404);
+        }
+
+        $studentLat = $student->latitude;
+        $studentLong = $student->longitude;
+
+        // Idagdag ang Haversine calculation dito para sa lahat ng jobs
+        $allJobs = \App\Models\Job::with(['household', 'employer'])
+            ->selectRaw(
+                "*, 
+        (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
+                [$studentLat, $studentLong, $studentLat]
+            )
+            ->where('status', 'active')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'count' => $allJobs->count(),
+            'jobs' => $allJobs,
+        ], 200);
     }
 }

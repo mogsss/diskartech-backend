@@ -30,18 +30,21 @@
                 
                 <template x-if="idUrl">
                     <div class="mb-3">
-                        <template x-if="idUrl.endsWith('.pdf') || idUrl.endsWith('.doc') || idUrl.endsWith('.docx')">
+                        <!-- Kung PDF o Document -->
+                        <template x-if="idUrl.toLowerCase().endsWith('.pdf') || idUrl.toLowerCase().endsWith('.doc') || idUrl.toLowerCase().endsWith('.docx')">
                             <a :href="idUrl" target="_blank" class="flex items-center gap-3 p-3 bg-white border border-stone-200 rounded-lg shadow-sm text-blue-600 hover:bg-stone-50 transition">
                                 <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                <span class="text-xs font-semibold underline truncate">Valid Id</span>
+                                <span class="text-xs font-semibold underline truncate">View Valid ID Document</span>
                             </a>
                         </template>
-                        <template x-if="!idUrl.endsWith('.pdf') && !idUrl.endsWith('.doc') && !idUrl.endsWith('.docx')">
-                            <a :href="idUrl" target="_blank" class="block">
-                                <img :src="idUrl" class="w-full h-48 object-contain bg-white border border-stone-200 rounded-lg shadow-sm hover:opacity-90 transition" alt="Valid ID">
+
+                        <!-- Kung Image -->
+                        <template x-if="!idUrl.toLowerCase().endsWith('.pdf') && !idUrl.toLowerCase().endsWith('.doc') && !idUrl.toLowerCase().endsWith('.docx')">
+                            <a :href="idUrl" target="_blank" class="block group">
+                                <img :src="idUrl" class="w-full h-48 object-contain bg-white border border-stone-200 rounded-lg shadow-sm group-hover:opacity-90 transition" alt="Valid ID">
+                                <span class="text-[11px] text-blue-600 underline mt-1.5 inline-block font-medium">Click image to view full size</span>
                             </a>
                         </template>
-                        <span class="text-[11px] text-blue-600 underline mt-1 inline-block">View</span>
                     </div>
                 </template>
                 <template x-if="!idUrl">
@@ -73,18 +76,21 @@
                     
                     <template x-if="certUrl">
                         <div class="mb-3">
-                            <template x-if="certUrl.endsWith('.pdf') || certUrl.endsWith('.doc') || certUrl.endsWith('.docx')">
+                            <!-- Kung PDF o Document -->
+                            <template x-if="certUrl.toLowerCase().endsWith('.pdf') || certUrl.toLowerCase().endsWith('.doc') || certUrl.toLowerCase().endsWith('.docx')">
                                 <a :href="certUrl" target="_blank" class="flex items-center gap-3 p-3 bg-white border border-stone-200 rounded-lg shadow-sm text-blue-600 hover:bg-stone-50 transition">
                                     <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                    <span class="text-xs font-semibold underline truncate">View Uploaded Documents</span>
+                                    <span class="text-xs font-semibold underline truncate">View Uploaded Certificate</span>
                                 </a>
                             </template>
-                            <template x-if="!certUrl.endsWith('.pdf') && !certUrl.endsWith('.doc') && !certUrl.endsWith('.docx')">
-                                <a :href="certUrl" target="_blank" class="block">
-                                    <img :src="certUrl" class="w-full h-48 object-contain bg-white border border-stone-200 rounded-lg shadow-sm hover:opacity-90 transition" alt="Business Certificate">
+
+                            <!-- Kung Image -->
+                            <template x-if="!certUrl.toLowerCase().endsWith('.pdf') && !certUrl.toLowerCase().endsWith('.doc') && !certUrl.toLowerCase().endsWith('.docx')">
+                                <a :href="certUrl" target="_blank" class="block group">
+                                    <img :src="certUrl" class="w-full h-48 object-contain bg-white border border-stone-200 rounded-lg shadow-sm group-hover:opacity-90 transition" alt="Business Certificate">
+                                    <span class="text-[11px] text-blue-600 underline mt-1.5 inline-block font-medium">Click image to view full size</span>
                                 </a>
                             </template>
-                            <span class="text-[11px] text-blue-600 underline mt-1 inline-block">View Document</span>
                         </div>
                     </template>
                     <template x-if="!certUrl">

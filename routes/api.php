@@ -6,12 +6,12 @@ use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\StudentController;
+use App\Http\Controllers\Api\VerificationController; 
+use App\Http\Controllers\Api\JobMatchingController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
-
-Route::post('/jobs', [JobController::class, 'store']);
 
 // ==========================================
 // Hiwalay na API routes para sa Registration
@@ -28,18 +28,27 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard Data
     Route::get('/dashboard-data', [DashboardController::class, 'getDashboardData']);
 
-    // User Profile para sa Verification Status (Dito dapat nakalagay)
+    Route::get('/student/ai-matched-jobs', [JobMatchingController::class, 'getMatchedJobs']);
+
+    // Job Posting (Naka-protect na para makuha ang user/employer location)
+    Route::post('/jobs', [JobController::class, 'store']);
+    Route::get('/jobs/{id}', [JobController::class, 'show']);
+    Route::get('/employer/my-jobs', [JobController::class, 'postedJobs']);
+
+    // User Profile para sa Verification Status
     Route::get('/user/profile', [AuthController::class, 'getUserProfile']);
 
-    // Student Specific Routes (Profile at Availability)
+    // Student Specific Routes (Profile, Availability, at Nearby Jobs)
     Route::get('/student/profile', [StudentController::class, 'getProfile']);
     Route::post('/student/update-availability', [StudentController::class, 'updateAvailability']);
     Route::post('/student/update-skills', [StudentController::class, 'updateSkills']);
     Route::post('/student/upload-doc', [StudentController::class, 'uploadStudentDoc']);
+    Route::get('/student/nearby-jobs', [StudentController::class, 'getNearbyJobs']); 
+    Route::get('/student/all-jobs', [StudentController::class, 'getAllJobs']);
 
     // Logout Route
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Verification Document Upload
-    Route::post('/upload-verification-doc', [AuthController::class, 'uploadVerificationDoc']);
+    Route::post('/upload-verification-doc', [VerificationController::class, 'uploadVerificationDoc']);
 });
