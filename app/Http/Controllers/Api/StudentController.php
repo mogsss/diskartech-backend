@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use App\Models\Jobs;
 use Illuminate\Http\Request;
 use App\Models\Student;
-use App\Models\Job;
+use App\Models\JobApplication;
 
 class StudentController extends Controller
 {
@@ -18,6 +20,24 @@ class StudentController extends Controller
         return response()->json([
             'status' => 'success',
             'profile' => $student
+        ], 200);
+    }
+    public function updatePushToken(Request $request)
+    {
+        $request->validate([
+            'expo_push_token' => 'required|string',
+        ]);
+
+        $user = $request->user();
+
+        // Siguraduhing student ang nag-a-update
+        Student::where('user_id', $user->id)->update([
+            'expo_push_token' => $request->expo_push_token,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Expo push token updated successfully.'
         ], 200);
     }
 
@@ -81,7 +101,7 @@ class StudentController extends Controller
     {
         $request->validate([
             'document_type' => 'required|string|in:student_resume,school_id,coe,profile_picture',
-            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', // Max 5MB
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
         $user = $request->user();
@@ -95,7 +115,6 @@ class StudentController extends Controller
             $file = $request->file('file');
             $docType = $request->document_type;
 
-            // Piliin ang subfolder base sa document type
             $folderName = 'student/';
             if ($docType === 'student_resume') {
                 $folderName .= 'resume';
@@ -108,17 +127,13 @@ class StudentController extends Controller
             }
 
             $filename = time() . '_' . $file->getClientOriginalName();
-
-            // I-save sa storage/app/public/...
             $path = $file->storeAs($folderName, $filename, 'public');
 
-            // 👇 DITO ANG PAGBABAGO: I-map ang 'profile_picture' papunta sa 'avatar' column
             $columnToUpdate = $docType;
             if ($docType === 'profile_picture') {
                 $columnToUpdate = 'avatar';
             }
 
-            // I-update ang kaukulang column sa students table
             $student->update([
                 $columnToUpdate => $path
             ]);
@@ -134,7 +149,8 @@ class StudentController extends Controller
 
         return response()->json(['status' => 'error', 'message' => 'No file uploaded'], 400);
     }
-    // Kunin ang mga malalapit na trabaho batay sa 5km radius (Haversine Formula)
+
+    // Kunin ang mga malalapit na trabaho batay sa 5km radius gamit ang Model Scope
     public function getNearbyJobs(Request $request)
     {
         $user = $request->user();
@@ -156,16 +172,16 @@ class StudentController extends Controller
 
         $radius = 5;
 
-        $nearbyJobs = \App\Models\Job::with(['household', 'employer']) // 👈 Dito
-            ->selectRaw(
-                "*, 
-            (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
-                [$studentLat, $studentLong, $studentLat]
-            )
+        $nearbyJobs = Jobs::with(['household', 'employer', 'applications'])
+            ->withDistance($studentLat, $studentLong)
             ->where('status', 'active')
             ->having("distance", "<=", $radius)
             ->orderBy('distance', 'asc')
-            ->get();
+            ->get()
+            ->map(function ($job) {
+                $job->applications_count = $job->applications->count();
+                return $job;
+            });
 
         return response()->json([
             'status' => 'success',
@@ -186,21 +202,82 @@ class StudentController extends Controller
         $studentLat = $student->latitude;
         $studentLong = $student->longitude;
 
-        // Idagdag ang Haversine calculation dito para sa lahat ng jobs
-        $allJobs = \App\Models\Job::with(['household', 'employer'])
-            ->selectRaw(
-                "*, 
-        (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
-                [$studentLat, $studentLong, $studentLat]
-            )
+        $allJobs = Jobs::with(['household', 'employer', 'applications'])
+            ->withDistance($studentLat, $studentLong)
             ->where('status', 'active')
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($job) {
+                $job->applications_count = $job->applications->count();
+                return $job;
+            });
 
         return response()->json([
             'status' => 'success',
             'count' => $allJobs->count(),
             'jobs' => $allJobs,
         ], 200);
+    }
+
+    public function myApplications(Request $request)
+    {
+        $userId = $request->user()->id;
+
+        $student = Student::where('user_id', $userId)->first();
+
+        if (!$student) {
+            return response()->json([
+                'status' => 'success',
+                'applications' => []
+            ]);
+        }
+
+        $applications = JobApplication::with('job')
+            ->where('student_id', $student->id)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'applications' => $applications
+        ]);
+    }
+
+    public function getSavedJobs(Request $request)
+    {
+        $student = Student::where('user_id', $request->user()->id)->first();
+
+        if (!$student) {
+            return response()->json(['status' => 'error', 'message' => 'Student not found'], 404);
+        }
+
+        $savedJobs = $student->savedJobs()
+            ->with(['household', 'employer', 'applications'])
+            ->latest()
+            ->get()
+            ->map(function ($job) {
+                $job->applications_count = $job->applications->count();
+                return $job;
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'jobs' => $savedJobs
+        ]);
+    }
+
+    public function toggleSaveJob(Request $request)
+    {
+        $request->validate(['job_id' => 'required|exists:available_jobs,id']);
+
+        $student = Student::where('user_id', $request->user()->id)->first();
+        $jobId = $request->job_id;
+
+        if ($student->savedJobs()->where('job_id', $jobId)->exists()) {
+            $student->savedJobs()->detach($jobId);
+            return response()->json(['status' => 'success', 'message' => 'Job removed from saved items']);
+        } else {
+            $student->savedJobs()->attach($jobId);
+            return response()->json(['status' => 'success', 'message' => 'Job saved successfully']);
+        }
     }
 }

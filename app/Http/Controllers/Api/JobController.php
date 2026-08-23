@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Jobs;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller; 
-use App\Models\Job;
+use App\Models\JobPosting;
 use App\Models\Student;
 use App\Models\Household;
 use App\Models\Employer;
@@ -18,8 +19,8 @@ class JobController extends Controller
             'description' => 'required|string',
             'salary' => 'required|numeric',
             'category' => 'required|string', 
-            'available_days' => 'required|array', // 👈 Validation para sa days array
-            'time_slot' => 'required|string',       // 👈 Validation para sa time slot string
+            'available_days' => 'required|array', 
+            'time_slot' => 'required|string',       
             'requirements' => 'nullable|array',
             'skills' => 'nullable|array',
         ]);
@@ -39,7 +40,7 @@ class JobController extends Controller
             $employerLat = $profile->latitude ?? null;
             $employerLong = $profile->longitude ?? null;
         } else {
-            // Fallback kung sakaling direkta sa users table nakalagay
+            // Fallback
             $employerLat = $user->latitude ?? null;
             $employerLong = $user->longitude ?? null;
         }
@@ -52,7 +53,7 @@ class JobController extends Controller
         }
 
         // I-save sa database gamit ang bagong columns para sa available_days at time_slot
-        $job = Job::create([
+        $job = Jobs::create([
             'user_id' => $user->id,
             'title' => $request->title,
             'description' => $request->description,
@@ -85,7 +86,7 @@ class JobController extends Controller
 
     public function show($id)
     {
-        $job = Job::with(['household', 'employer'])->find($id);
+        $job = Jobs::with(['household', 'employer'])->find($id);
 
         if (!$job) {
             return response()->json([
@@ -99,15 +100,5 @@ class JobController extends Controller
             'job' => $job
         ], 200);
     }
-    public function postedJobs(Request $request)
-{
-    $user = $request->user();
     
-    $jobs = Job::where('user_id', $user->id)->latest()->get();
-
-    return response()->json([
-        'status' => 'success',
-        'jobs' => $jobs
-    ], 200);
-}
 }

@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Models\Job;
+use App\Models\Jobs;
 use App\Models\Student;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log; // 👈 Idinagdag ang Log facade
+use Illuminate\Support\Facades\Log;
 
 class JobMatchingController extends Controller
 {
@@ -31,23 +31,41 @@ class JobMatchingController extends Controller
                 ], 404);
             }
 
-            $jobs = Job::where('status', 'active')
-                ->with(['household', 'employer'])
+            $studentLat = $student->latitude ?? null;
+            $studentLong = $student->longitude ?? null;
+
+            if (!$studentLat || !$studentLong) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Student location is not set in your profile.'
+                ], 422);
+            }
+
+            // Kinuha ang mga jobs kasama ang distansya para mai-show sa UI nang hindi hinaharangan ng radius
+            $jobs = Jobs::with(['household', 'employer'])
+                ->withDistance($studentLat, $studentLong)
+                ->where('status', 'active')
                 ->get();
 
             if ($jobs->isEmpty()) {
                 return response()->json([
                     'status' => 'success',
+                    'matched_by' => 'none',
                     'matched_jobs' => []
                 ], 200);
             }
 
             $studentSkills = is_string($student->skills) ? (json_decode($student->skills, true) ?? []) : ($student->skills ?? []);
+            if (empty($studentSkills) && !empty($student->skillset)) {
+                $studentSkills = is_string($student->skillset) ? (json_decode($student->skillset, true) ?? []) : ($student->skillset ?? []);
+            }
+
             $studentDays = is_string($student->available_days) ? (json_decode($student->available_days, true) ?? []) : ($student->available_days ?? []);
             $studentTimeSlot = $student->time_slot ?? 'Whole Day';
 
+            // Prompt para kay Gemini AI (Purong Skills at Schedule lamang)
             $prompt = "As an AI Job Matcher for working students, analyze the student's profile and the available jobs. " .
-                      "Compute a schedule and skills match percentage (from 0 to 100) for each job based on availability, time slot, and skills. " .
+                      "Compute a schedule and skills match percentage (from 0 to 100) for each job based strictly on availability, time slot, and skills compatibility. " .
                       "Return the response STRICTLY as a valid JSON array without any markdown backticks or extra text, where each item contains 'id' (job id) and 'match_percentage' (integer).\n\n" .
                       "Student Profile:\n" .
                       "- Skills: " . implode(', ', $studentSkills) . "\n" .
@@ -79,6 +97,7 @@ class JobMatchingController extends Controller
             ]);
 
             $matchedJobs = [];
+            $matchedBySource = 'ai_skills_schedule';
 
             if ($response->successful()) {
                 $geminiData = $response->json();
@@ -99,36 +118,50 @@ class JobMatchingController extends Controller
 
                 foreach ($jobs as $job) {
                     $scoreObj = collect($aiScores)->firstWhere('id', $job->id);
-                    $matchScore = $scoreObj['match_percentage'] ?? 75;
+                    $aiMatchScore = $scoreObj['match_percentage'] ?? 0; 
 
-                    $job->match_percentage = $matchScore;
+                    // 👇 ITINATAGO O HINAHARANGAN KAPAG 0% O MAS MABABABA ANG MATCH PERCENTAGE
+                    if ($aiMatchScore <= 0) {
+                        continue;
+                    }
+
+                    $job->match_percentage = round($aiMatchScore);
+                    $job->match_source = 'ai_skills_schedule';
                     $matchedJobs[] = $job;
                 }
             } else {
-                // I-log kung nag-fail ang Gemini API response
-                Log::warning('Gemini Job Matching API failed, using fallback.', ['response' => $response->body()]);
+                Log::warning('Gemini Job Matching API failed, using days fallback.', ['response' => $response->body()]);
+
+                $matchedBySource = 'fallback_math';
 
                 foreach ($jobs as $job) {
                     $jobDays = is_string($job->available_days) ? (json_decode($job->available_days, true) ?? []) : ($job->available_days ?? []);
                     $commonDays = array_intersect($studentDays, $jobDays);
-                    $daysMatchScore = count($jobDays) > 0 ? (count($commonDays) / count($jobDays)) * 100 : 70;
-                    
+                    $daysMatchScore = count($jobDays) > 0 ? (count($commonDays) / count($jobDays)) * 100 : 0;
+
+                    // 👇 Para rin sa fallback sakaling mag-zero percent
+                    if ($daysMatchScore <= 0) {
+                        continue;
+                    }
+
                     $job->match_percentage = round($daysMatchScore);
+                    $job->match_source = 'fallback_math';
                     $matchedJobs[] = $job;
                 }
             }
 
+            // Pag-sort mula pinakamataas hanggang pinababang match percentage
             usort($matchedJobs, function ($a, $b) {
                 return $b->match_percentage <=> $a->match_percentage;
             });
 
             return response()->json([
                 'status' => 'success',
+                'matched_by' => $matchedBySource,
                 'matched_jobs' => $matchedJobs
             ], 200);
 
         } catch (\Exception $e) {
-            // Itatala ang eksaktong error sa laravel.log file
             Log::error('JobMatchingController Error: ' . $e->getMessage(), [
                 'line' => $e->getLine(),
                 'file' => $e->getFile(),

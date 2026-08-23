@@ -17,7 +17,8 @@ class JobApplication extends Model
 
     public function job()
     {
-        return $this->belongsTo(AvailableJob::class, 'job_id');
+        // Pinapalitan natin ng Jobs::class para magtugma sa iyong Jobs model
+        return $this->belongsTo(Jobs::class, 'job_id');
     }
 
     public function student()

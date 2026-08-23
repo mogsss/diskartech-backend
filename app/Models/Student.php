@@ -24,10 +24,10 @@ class Student extends Model
         'year_level',
         'contact_number',
         'contact_person',
-        'age',            
-        'gender',           
-        'location',        
-        'detailed_address', 
+        'age',
+        'gender',
+        'location',
+        'detailed_address',
         'latitude',
         'longitude',
         'isVerified',
@@ -63,5 +63,9 @@ class Student extends Model
     public function applications()
     {
         return $this->hasMany(JobApplication::class);
+    }
+    public function savedJobs()
+    {
+        return $this->belongsToMany(Jobs::class, 'saved_jobs', 'student_id', 'job_id');
     }
 }
