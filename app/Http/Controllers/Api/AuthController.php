@@ -13,7 +13,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use App\Jobs\AnalyzeVerificationDocument; // 👈 Na-import na natin ang Job dito
+use Illuminate\Support\Facades\Mail;
+use Carbon\Carbon;
+use App\Jobs\AnalyzeVerificationDocument;
 
 class AuthController extends Controller
 {
@@ -51,6 +53,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'student',
+                'isEmailVerified' => false,
             ]);
 
             $studentData = [
@@ -81,11 +84,15 @@ class AuthController extends Controller
             }
 
             Student::create($studentData);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Student account created successfully!',
+                'message' => 'Student account created successfully! Please verify your email.',
+                'token' => $token,
                 'user' => $user
             ], 201);
         } catch (\Exception $e) {
@@ -125,6 +132,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'employer',
+                'isEmailVerified' => false,
             ]);
 
             $employerData = [
@@ -149,11 +157,15 @@ class AuthController extends Controller
             }
 
             Employer::create($employerData);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Employer account created successfully!',
+                'message' => 'Employer account created successfully! Please verify your email.',
+                'token' => $token,
                 'user' => $user
             ], 201);
         } catch (\Exception $e) {
@@ -193,6 +205,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'household',
+                'isEmailVerified' => false,
             ]);
 
             $householdData = [
@@ -213,11 +226,15 @@ class AuthController extends Controller
             }
 
             Household::create($householdData);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Household account created successfully!',
+                'message' => 'Household account created successfully! Please verify your email.',
+                'token' => $token,
                 'user' => $user
             ], 201);
         } catch (\Exception $e) {
@@ -227,17 +244,13 @@ class AuthController extends Controller
     }
 
     // ==========================================
-    // LOGIN & LOGOUT
+    // LOGIN
     // ==========================================
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|string|email',
             'password' => 'required|string',
-        ], [
-            'email.required' => 'The email address is required.',
-            'email.email' => 'Please enter a valid email address.',
-            'password.required' => 'The password is required.',
         ]);
 
         if ($validator->fails()) {
@@ -252,6 +265,18 @@ class AuthController extends Controller
 
         if (!Hash::check($request->password, $user->password)) {
             return response()->json(['status' => 'error', 'message' => 'The password you entered is incorrect.'], 401);
+        }
+
+        // Suriin ang isEmailVerified column
+        if (isset($user->isEmailVerified) && !$user->isEmailVerified) {
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Your email address is not verified. Please check your inbox for the OTP code.',
+                'token' => $token,
+                'user' => $user // 👈 Isinama na natin ang user object dito
+            ], 403);
         }
 
         $profile = null;
@@ -285,22 +310,75 @@ class AuthController extends Controller
     }
 
     // ==========================================
-    // VERIFICATION DOCUMENT UPLOAD (NA MAY BACKGROUND JOB)
-    // ==========================================
-    
-
-    // ==========================================
-    // GET USER PROFILE (PARA SA REAL-TIME STATUS)
+    // GET USER PROFILE
     // ==========================================
     public function getUserProfile(Request $request)
     {
         $user = $request->user();
         
-        $profile = $user->householdProfile ?? $user->employerProfile;
+        $profile = $user->householdProfile ?? $user->employerProfile ?? $user->studentProfile;
 
         return response()->json([
             'status' => 'success',
             'profile' => $profile
+        ], 200);
+    }
+
+    // ==========================================
+    // OTP: SEND OTP
+    // ==========================================
+    public function sendOtp(Request $request)
+    {
+        $user = $request->user();
+
+        $otp = rand(100000, 999999);
+
+        $user->otp_code = $otp;
+        $user->otp_expires_at = Carbon::now()->addMinutes(10);
+        $user->save();
+
+        Mail::raw("Your DiskarTech verification code is: {$otp}. It expires in 10 minutes.", function ($message) use ($user) {
+            $message->to($user->email)
+                    ->subject('Your Verification OTP Code');
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'OTP has been sent to your email address.'
+        ], 200);
+    }
+
+    // ==========================================
+    // OTP: VERIFY OTP
+    // ==========================================
+    public function verifyOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'otp_code' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+        }
+
+        $user = $request->user();
+
+        if ($user->otp_code !== $request->otp_code) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid OTP code.'], 400);
+        }
+
+        if (Carbon::now()->greaterThan($user->otp_expires_at)) {
+            return response()->json(['status' => 'error', 'message' => 'OTP code has expired. Please request a new one.'], 400);
+        }
+
+        $user->isEmailVerified = true;
+        $user->otp_code = null;
+        $user->otp_expires_at = null;
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Email verified successfully!'
         ], 200);
     }
 }

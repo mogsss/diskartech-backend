@@ -232,7 +232,8 @@ class StudentController extends Controller
             ]);
         }
 
-        $applications = JobApplication::with('job')
+        // 👇 Isinama na natin ang job.household at job.employer para lumabas ang avatar/profile nila
+        $applications = JobApplication::with(['job.household', 'job.employer'])
             ->where('student_id', $student->id)
             ->get();
 

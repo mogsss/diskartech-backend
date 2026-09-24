@@ -27,7 +27,7 @@ Route::post('/register/household', [AuthController::class, 'registerHousehold'])
 Route::post('/login', [AuthController::class, 'login']);
 
 // Mga Routes na nangangailangan ng Sanctum Authentication
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     // Dashboard Data
     Route::get('/dashboard-data', [DashboardController::class, 'getDashboardData']);
 
@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/jobs/{id}', [JobController::class, 'show']);
 
     // Employer Management Routes (Pinag-isa na sa EmployerController)
+    Route::post('/employer/add-profile', [EmployerController::class, 'addAvatar']);
     Route::get('/employer/jobs', [EmployerController::class, 'postedJobs']);
     Route::get('/employer/jobs/{jobId}/applicants', [EmployerController::class, 'getJobApplicants']);
     Route::get('/employer/applicants', [EmployerController::class, 'getAllApplicants']);
@@ -45,6 +46,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User Profile para sa Verification Status
     Route::get('/user/profile', [AuthController::class, 'getUserProfile']);
+
+    // ==========================================
+    // OTP Email Verification Routes (Nasa loob ng Sanctum)
+    // ==========================================
+    Route::post('/email/send-otp', [AuthController::class, 'sendOtp'])->middleware(['throttle:6,1']);
+    Route::post('/email/verify-otp', [AuthController::class, 'verifyOtp']);
 
     // Student Specific Routes (Profile, Availability, at Nearby Jobs)
     Route::get('/student/profile', [StudentController::class, 'getProfile']);

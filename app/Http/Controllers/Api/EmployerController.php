@@ -9,6 +9,43 @@ use App\Models\Jobs;
 
 class EmployerController extends Controller
 {
+    public function addAvatar(Request $request)
+    {
+        $request->validate([
+            'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        $user = $request->user();
+        $file = $request->file('profile_picture');
+        $filename = time() . '_' . $file->getClientOriginalName();
+
+        // 👇 Tukuyin ang folder depende sa role ng user
+        if ($user->role === 'household') {
+            $path = $file->storeAs('household/avatar', $filename, 'public');
+
+            // Isinave na relative path lang (halimbawa: household/avatar/filename.jpg)
+            \App\Models\Household::where('user_id', $user->id)->update([
+                'avatar' => $path
+            ]);
+        } else {
+            // Default para sa employer
+            $path = $file->storeAs('employers/avatar', $filename, 'public');
+
+            // Isinave na relative path lang (halimbawa: employers/avatar/filename.jpg)
+            \App\Models\Employer::where('user_id', $user->id)->update([
+                'avatar' => $path
+            ]);
+        }
+
+        // Buong URL pa rin ang ibabato sa JSON response para sa mobile app
+        $url = asset('storage/' . $path);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Avatar updated successfully',
+            'profile_picture' => $url
+        ], 200);
+    }
     // Ginagamit ito para sa dashboard (kasama na ang applications at student info)
     public function myJobListings(Request $request)
     {
