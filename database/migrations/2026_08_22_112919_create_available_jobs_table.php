@@ -11,6 +11,8 @@ return new class extends Migration
      */
    public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('available_jobs');
         Schema::create('available_jobs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
@@ -24,6 +26,7 @@ return new class extends Migration
             $table->json('skills')->nullable();
             $table->timestamps();
         });
+        Schema::enableForeignKeyConstraints();
     }
 
     /**
