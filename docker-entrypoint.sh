@@ -1,6 +1,17 @@
 #!/bin/bash
 set -e
 
+# Ensure storage directories exist and have proper permissions
+mkdir -p /var/www/html/storage/app/public/student/profile_pictures \
+         /var/www/html/storage/app/public/student/school_id \
+         /var/www/html/storage/app/public/student/coe \
+         /var/www/html/storage/app/public/student/resume \
+         /var/www/html/storage/app/public/employers/avatar \
+         /var/www/html/storage/app/public/household/avatar || true
+
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache || true
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache || true
+
 # Generate app storage symlink if not already created
 php artisan storage:link || true
 

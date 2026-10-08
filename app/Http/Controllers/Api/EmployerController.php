@@ -43,7 +43,9 @@ class EmployerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Avatar updated successfully',
-            'profile_picture' => $url
+            'profile_picture' => $url,
+            'avatar' => $url,
+            'file_path' => $path,
         ], 200);
     }
     // Ginagamit ito para sa dashboard (kasama na ang applications at student info)

@@ -337,6 +337,17 @@ class AuthController extends Controller
         
         $profile = $user->householdProfile ?? $user->employerProfile ?? $user->studentProfile;
 
+        if ($profile) {
+            $avatar = $profile->avatar ?? $profile->profile_picture ?? null;
+            if ($avatar && !str_starts_with($avatar, 'http')) {
+                $profile->avatar_url = asset('storage/' . $avatar);
+            } else {
+                $profile->avatar_url = $avatar;
+            }
+            $profile->avatar = $profile->avatar ?? $profile->profile_picture;
+            $profile->profile_picture = $profile->profile_picture ?? $profile->avatar;
+        }
+
         // Calculate average rating and review count from official contract reviews
         $reviewQuery = \App\Models\Review::where('reviewee_id', $user->id);
         $reviewCount = $reviewQuery->count();
@@ -593,7 +604,8 @@ class AuthController extends Controller
 
         // 2. Fallback to standard Laravel SMTP if Resend is not configured or fails
         if (!$mailSent) {
-            try {
+
+        try {
                 Mail::raw($emailBody, function ($message) use ($user) {
                     $message->to($user->email)
                             ->subject('Verify Your Email Address | DiskarTech');

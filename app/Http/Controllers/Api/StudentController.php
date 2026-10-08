@@ -154,8 +154,13 @@ class StudentController extends Controller
                 AnalyzeVerificationDocument::dispatch($student, $path, $file->getClientMimeType(), $docType);
             }
 
+            $fullUrl = asset('storage/' . $path);
+
             return response()->json([
                 $docType => $path,
+                'avatar' => $path,
+                'profile_picture' => $path,
+                'full_url' => $fullUrl,
                 'status' => 'success',
                 'message' => 'Document uploaded successfully!',
                 'file_path' => $path,

@@ -1,2 +1,2 @@
-*
+# Preserve uploaded assets and directory structure in container builds
 !.gitignore

@@ -20,6 +20,15 @@ Route::get('/', function () {
 // Public Working Student Certificate Viewer & PDF Print Route
 Route::get('/certificate/{id}/view', [\App\Http\Controllers\CertificateWebController::class, 'viewCertificate'])->name('certificate.view');
 
+// Fallback direct storage file serving route for uploads and avatars
+Route::get('/storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
+    if (file_exists($filePath)) {
+        return response()->file($filePath);
+    }
+    abort(404);
+})->where('path', '.*');
+
 // Guest Admin Routes (Login)
 Route::middleware(['guest:admin'])->group(function () {
     Route::get('/admin/login', [AuthController::class, 'showLoginForm'])->name('login');
