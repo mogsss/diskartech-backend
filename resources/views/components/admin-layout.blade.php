@@ -217,19 +217,22 @@
     <!-- Main Wrapper -->
     <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <!-- Top Bar Header -->
-        <header class="h-16 md:h-20 px-4 sm:px-6 lg:px-8 flex items-center justify-between border-b border-stone-200/60 bg-[#FDFBF7] flex-shrink-0 z-20">
-            <div class="flex items-center min-w-0 mr-3">
+        <header class="h-16 md:h-20 px-3.5 sm:px-6 lg:px-8 flex items-center justify-between border-b border-stone-200/60 bg-[#FDFBF7] flex-shrink-0 z-20">
+            <div class="flex items-center min-w-0 mr-2 sm:mr-3">
                 <!-- Mobile Hamburger Button -->
                 <button 
                     @click="sidebarOpen = true" 
-                    class="mr-3 p-2 rounded-xl bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 md:hidden flex-shrink-0 active:opacity-75 transition"
+                    class="mr-2 sm:mr-3 p-2 rounded-xl bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 md:hidden flex-shrink-0 active:scale-95 transition"
                     aria-label="Open Sidebar Menu"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                 </button>
 
+                <!-- Mobile Brand Icon -->
+                <img src="{{ asset('logo.png') }}" alt="DiskarTech Logo" class="w-7 h-7 rounded-lg object-cover mr-2 md:hidden flex-shrink-0">
+
                 <div class="min-w-0">
-                    <h2 class="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-tight truncate">@stack('header-title', 'Overview')</h2>
+                    <h2 class="text-sm sm:text-lg md:text-xl font-bold text-slate-900 leading-tight truncate">@stack('header-title', 'Overview')</h2>
                     <p class="text-[10px] sm:text-xs text-slate-500 font-medium truncate hidden sm:block">Pinamalayan, Oriental Mindoro · updated just now</p>
                 </div>
             </div>
@@ -286,7 +289,7 @@
                         </div>
 
                         <!-- Notification Items Container -->
-                        <div class="max-h-80 overflow-y-auto divide-y divide-stone-100">
+                        <div class="max-h-80 overflow-y-auto divide-y border-stone-100">
                             <template x-if="recentReports.length === 0">
                                 <div class="py-8 text-center text-slate-400 px-4">
                                     <svg class="w-8 h-8 mx-auto text-emerald-500 mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -325,9 +328,50 @@
         </header>
 
         <!-- Page Content -->
-        <main class="flex-1 p-3.5 sm:p-5 md:p-6 lg:p-8 overflow-y-auto min-w-0">
+        <main class="flex-1 p-3.5 sm:p-5 md:p-6 lg:p-8 pb-20 md:pb-8 overflow-y-auto min-w-0">
             {{ $slot }}
         </main>
+
+        <!-- Mobile Bottom Navigation Bar (Phone Only) -->
+        <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-stone-200/80 px-2 py-1.5 flex items-center justify-around z-40 shadow-lg">
+            <!-- 1. Overview -->
+            <a href="{{ route('admin.dashboard') }}" class="flex flex-col items-center py-1 px-2.5 rounded-xl text-center transition {{ request()->routeIs('admin.dashboard') ? 'text-red-700 font-bold' : 'text-slate-500 hover:text-slate-800' }}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <span class="text-[10px] mt-0.5">Overview</span>
+            </a>
+
+            <!-- 2. Messages -->
+            <a href="{{ route('admin.messages') }}" class="flex flex-col items-center py-1 px-2.5 rounded-xl text-center transition {{ request()->routeIs('admin.messages*') ? 'text-red-700 font-bold' : 'text-slate-500 hover:text-slate-800' }}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                <span class="text-[10px] mt-0.5">Messages</span>
+            </a>
+
+            <!-- 3. Verifications -->
+            <a href="{{ route('admin.verification') }}" class="flex flex-col items-center py-1 px-2.5 rounded-xl text-center transition {{ request()->routeIs('admin.verification') ? 'text-red-700 font-bold' : 'text-slate-500 hover:text-slate-800' }}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                <span class="text-[10px] mt-0.5">Verify</span>
+            </a>
+
+            <!-- 4. Reports -->
+            <a href="{{ route('admin.reports') }}" class="flex flex-col items-center py-1 px-2.5 rounded-xl text-center relative transition {{ request()->routeIs('admin.reports*') ? 'text-red-700 font-bold' : 'text-slate-500 hover:text-slate-800' }}">
+                <div class="relative">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <span 
+                        x-show="pendingCount > 0" 
+                        x-cloak 
+                        x-text="pendingCount" 
+                        class="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full"
+                    ></span>
+                </div>
+                <span class="text-[10px] mt-0.5">Reports</span>
+            </a>
+
+            <!-- 5. Menu Button (Triggers Drawer) -->
+            <button @click="sidebarOpen = true" class="flex flex-col items-center py-1 px-2.5 rounded-xl text-center text-slate-500 hover:text-slate-800 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                <span class="text-[10px] mt-0.5">Menu</span>
+            </button>
+        </nav>
     </div>
 
     <!-- Alpine.js Real-time Admin Notification Engine -->
