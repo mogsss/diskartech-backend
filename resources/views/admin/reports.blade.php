@@ -92,7 +92,7 @@
 
         <!-- Tab Navigation Buttons -->
         <div class="flex items-center justify-between border-b border-stone-200 pb-4 mb-6 flex-wrap gap-4">
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center flex-wrap gap-2">
                 <button type="button" @click="activeTab = 'incidents'" 
                     :class="activeTab === 'incidents' ? 'bg-red-700 text-white font-bold shadow-sm' : 'bg-[#F2EDE4] text-slate-700 hover:bg-stone-200 font-medium'"
                     class="px-4 py-2 rounded-xl text-xs transition flex items-center space-x-2">

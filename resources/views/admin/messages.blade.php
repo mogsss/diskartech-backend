@@ -63,7 +63,10 @@
         <div class="flex-1 bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden flex min-h-0">
 
             <!-- Left Panel: Conversation Directory -->
-            <div class="w-80 md:w-96 border-r border-stone-200/80 flex flex-col bg-[#FAF8F5]">
+            <div 
+                class="w-full md:w-80 lg:w-96 border-r border-stone-200/80 flex flex-col bg-[#FAF8F5] flex-shrink-0"
+                :class="selectedChat ? 'hidden md:flex' : 'flex'"
+            >
                 
                 <!-- Search & Filters -->
                 <div class="p-3.5 border-b border-stone-200/80 space-y-2.5 bg-white">
@@ -174,7 +177,10 @@
             </div>
 
             <!-- Right Panel: Conversation Inspection & Transcript -->
-            <div class="flex-1 flex flex-col min-w-0 bg-[#FDFBF7]">
+            <div 
+                class="flex-1 flex flex-col min-w-0 bg-[#FDFBF7]"
+                :class="selectedChat ? 'flex' : 'hidden md:flex'"
+            >
 
                 <template x-if="!selectedChat">
                     <div class="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -194,8 +200,17 @@
                     <div class="flex-1 flex flex-col min-h-0">
                         
                         <!-- Room Header & Participant Inspection -->
-                        <div class="px-6 py-3.5 border-b border-stone-200/80 bg-white flex items-center justify-between flex-shrink-0">
-                            <div class="flex items-center space-x-4">
+                        <div class="px-3 sm:px-6 py-3 border-b border-stone-200/80 bg-white flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center space-x-2 sm:space-x-4 min-w-0 overflow-x-auto">
+                                <!-- Mobile Back Button to Return to Chats -->
+                                <button 
+                                    @click="selectedChat = null" 
+                                    class="md:hidden p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-slate-700 flex-shrink-0 transition active:opacity-75"
+                                    title="Back to conversation list"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                                </button>
+
                                 <!-- Student Badge -->
                                 <div class="flex items-center space-x-2">
                                     <div class="w-9 h-9 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center uppercase overflow-hidden">
