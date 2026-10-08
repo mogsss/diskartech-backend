@@ -26,6 +26,9 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Configure Apache to listen on $PORT provided by Render (default 80/10000)
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/ports.conf /etc/apache2/sites-available/000-default.conf
 
+# Configure PHP upload and memory limits for mobile uploads
+RUN echo "upload_max_filesize = 25M\npost_max_size = 30M\nmemory_limit = 256M" > /usr/local/etc/php/conf.d/uploads.ini
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
