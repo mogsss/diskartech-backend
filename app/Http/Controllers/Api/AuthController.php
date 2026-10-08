@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use App\Jobs\AnalyzeVerificationDocument;
 
@@ -549,24 +550,63 @@ class AuthController extends Controller
             . "The DiskarTech Team";
 
         $mailSent = false;
-        try {
-            Mail::raw($emailBody, function ($message) use ($user) {
-                $message->to($user->email)
-                        ->subject('Verify Your Email Address | DiskarTech');
-            });
-            $mailSent = true;
-        } catch (\Throwable $e) {
-            \Log::warning('SMTP Mail sending failed: ' . $e->getMessage());
+
+        // 1. Send via Resend HTTP API (Port 443 HTTPS - works reliably on Render Free tier)
+        $resendApiKey = env('RESEND_API_KEY');
+        if ($resendApiKey) {
+            try {
+                $htmlBody = "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;'>"
+                    . "<div style='text-align: center; margin-bottom: 24px;'>"
+                    . "<h1 style='color: #4f46e5; margin: 0; font-size: 26px;'>DiskarTech</h1>"
+                    . "<p style='color: #64748b; font-size: 14px;'>Student Part-Time Employment Platform</p>"
+                    . "</div>"
+                    . "<p style='color: #334155; font-size: 16px;'>Hello,</p>"
+                    . "<p style='color: #334155; font-size: 15px;'>Thank you for registering with DiskarTech! Please enter the 6-digit verification code below to verify your email address:</p>"
+                    . "<div style='text-align: center; margin: 30px 0;'>"
+                    . "<span style='display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4f46e5; background: #eef2ff; padding: 14px 28px; border-radius: 8px; border: 2px dashed #6366f1;'>{$otp}</span>"
+                    . "</div>"
+                    . "<p style='color: #64748b; font-size: 13px;'>This verification code will expire in 10 minutes. For your protection, never share this code with anyone.</p>"
+                    . "<hr style='border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;' />"
+                    . "<p style='color: #94a3b8; font-size: 12px; text-align: center;'>If you did not register for a DiskarTech account, you can safely ignore this email.</p>"
+                    . "</div>";
+
+                $resendResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $resendApiKey,
+                    'User-Agent' => 'DiskarTech-App/1.0',
+                ])->post('https://api.resend.com/emails', [
+                    'from' => env('RESEND_FROM', 'DiskarTech <onboarding@resend.dev>'),
+                    'to' => [$user->email],
+                    'subject' => 'Verify Your Email Address | DiskarTech',
+                    'text' => $emailBody,
+                    'html' => $htmlBody,
+                ]);
+
+                if ($resendResponse->successful()) {
+                    $mailSent = true;
+                } else {
+                    Log::warning('Resend API response error: ' . $resendResponse->body());
+                }
+            } catch (\Throwable $re) {
+                Log::warning('Resend API call exception: ' . $re->getMessage());
+            }
         }
 
-        $message = $mailSent
-            ? 'OTP has been sent to your email address.'
-            : "Verification code generated! Code: {$otp}";
+        // 2. Fallback to standard Laravel SMTP if Resend is not configured or fails
+        if (!$mailSent) {
+            try {
+                Mail::raw($emailBody, function ($message) use ($user) {
+                    $message->to($user->email)
+                            ->subject('Verify Your Email Address | DiskarTech');
+                });
+                $mailSent = true;
+            } catch (\Throwable $e) {
+                Log::warning('SMTP Mail sending failed: ' . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'status' => 'success',
-            'message' => $message,
-            'otp' => $otp,
+            'message' => 'Verification code has been sent to your email address.',
             'mail_sent' => $mailSent
         ], 200);
     }
