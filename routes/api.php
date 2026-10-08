@@ -59,7 +59,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // OTP Email Verification Routes (Nasa loob ng Sanctum)
     // ==========================================
     Route::post('/email/send-otp', [AuthController::class, 'sendOtp'])->middleware(['throttle:6,1']);
-    Route::post('/email/verify-otp', [AuthController::class, 'verifyOtp']);
+    Route::post('/email/verify-otp', [AuthController::class, 'verifyOtp'])->middleware(['throttle:10,1,otp-verify']);
 
     // Student Specific Routes (Profile, Availability, at Nearby Jobs)
     Route::get('/student/profile', [StudentController::class, 'getProfile']);

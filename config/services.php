@@ -22,6 +22,18 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'gmail' => [
+        'client_id' => env('GMAIL_CLIENT_ID'),
+        'client_secret' => env('GMAIL_CLIENT_SECRET'),
+        'refresh_token' => env('GMAIL_REFRESH_TOKEN'),
+        'from_address' => env('GMAIL_FROM_ADDRESS', 'diskartech.official@gmail.com'),
+        'timeout' => 10,
+    ],
+
+    'otp' => [
+        'resend_cooldown' => (int) env('OTP_RESEND_COOLDOWN', 60),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

@@ -13,8 +13,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use App\Services\GmailOtpMailer;
+use App\Services\GmailDeliveryException;
 use Carbon\Carbon;
 use App\Jobs\AnalyzeVerificationDocument;
 
@@ -543,88 +544,77 @@ class AuthController extends Controller
     // ==========================================
     // OTP: SEND OTP
     // ==========================================
-    public function sendOtp(Request $request)
+    public function sendOtp(Request $request, GmailOtpMailer $mailer)
     {
         $user = $request->user();
+        $lock = Cache::lock('otp:send:'.$user->id, 30);
 
-        $otp = (string) rand(100000, 999999);
-
-        $user->otp_code = $otp;
-        $user->otp_expires_at = Carbon::now()->addMinutes(10);
-        $user->save();
-
-        $emailBody = "Hello,\n\n"
-            . "Please use the following verification code to verify your email address for DiskarTech:\n\n"
-            . "{$otp}\n\n"
-            . "This code expires in 10 minutes. For your security, do not share it with anyone.\n\n"
-            . "If you did not request this code, please disregard this email.\n\n"
-            . "The DiskarTech Team";
-
-        $mailSent = false;
-
-        // 1. Send via Resend HTTP API (Port 443 HTTPS - only if custom domain is verified OR sending to registered testing email)
-        $resendApiKey = env('RESEND_API_KEY');
-        $resendFrom = env('RESEND_FROM', 'DiskarTech <onboarding@resend.dev>');
-        $isTestingDomain = str_contains($resendFrom, 'resend.dev');
-        $canAttemptResend = $resendApiKey && (!$isTestingDomain || strtolower(trim($user->email)) === 'mogoljohnlee@gmail.com');
-
-        if ($canAttemptResend) {
-            try {
-                $htmlBody = "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;'>"
-                    . "<div style='text-align: center; margin-bottom: 24px;'>"
-                    . "<h1 style='color: #4f46e5; margin: 0; font-size: 26px;'>DiskarTech</h1>"
-                    . "<p style='color: #64748b; font-size: 14px;'>Student Part-Time Employment Platform</p>"
-                    . "</div>"
-                    . "<p style='color: #334155; font-size: 16px;'>Hello,</p>"
-                    . "<p style='color: #334155; font-size: 15px;'>Thank you for registering with DiskarTech! Please enter the 6-digit verification code below to verify your email address:</p>"
-                    . "<div style='text-align: center; margin: 30px 0;'>"
-                    . "<span style='display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4f46e5; background: #eef2ff; padding: 14px 28px; border-radius: 8px; border: 2px dashed #6366f1;'>{$otp}</span>"
-                    . "</div>"
-                    . "<p style='color: #64748b; font-size: 13px;'>This verification code will expire in 10 minutes. For your protection, never share this code with anyone.</p>"
-                    . "<hr style='border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;' />"
-                    . "<p style='color: #94a3b8; font-size: 12px; text-align: center;'>If you did not register for a DiskarTech account, you can safely ignore this email.</p>"
-                    . "</div>";
-
-                $resendResponse = Http::timeout(4)->withHeaders([
-                    'Authorization' => 'Bearer ' . $resendApiKey,
-                    'User-Agent' => 'DiskarTech-App/1.0',
-                ])->post('https://api.resend.com/emails', [
-                    'from' => $resendFrom,
-                    'to' => [$user->email],
-                    'subject' => 'Verify Your Email Address | DiskarTech',
-                    'text' => $emailBody,
-                    'html' => $htmlBody,
-                ]);
-
-                if ($resendResponse->successful()) {
-                    $mailSent = true;
-                } else {
-                    Log::warning('Resend API response error: ' . $resendResponse->body());
-                }
-            } catch (\Throwable $re) {
-                Log::warning('Resend API call exception: ' . $re->getMessage());
-            }
+        if (! $lock->get()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'A verification email is already being sent. Please wait.',
+                'mail_sent' => false,
+                'retry_after' => 3,
+            ], 429)->header('Retry-After', '3');
         }
-
-        // 2. Fallback to standard Laravel SMTP if Resend is not configured or fails
-        if (!$mailSent) {
 
         try {
-                Mail::raw($emailBody, function ($message) use ($user) {
-                    $message->to($user->email)
-                            ->subject('Verify Your Email Address | DiskarTech');
-                });
-                $mailSent = true;
-            } catch (\Throwable $e) {
-                Log::warning('SMTP Mail sending failed: ' . $e->getMessage());
+            $user->refresh();
+            if ($user->isEmailVerified) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Your email address is already verified.',
+                    'mail_sent' => false,
+                ], 409);
             }
-        }
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Verification code has been sent to your email address.',
-            'mail_sent' => $mailSent
-        ], 200);
+            $cooldown = max(1, (int) config('services.otp.resend_cooldown', 60));
+            // The saved expiry also records when the last successful OTP was issued.
+            $nextSendAt = $user->otp_expires_at?->copy()->subMinutes(10)->addSeconds($cooldown);
+            if ($nextSendAt && $nextSendAt->isFuture()) {
+                $retryAfter = max(1, (int) ceil(now()->diffInSeconds($nextSendAt)));
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Please wait {$retryAfter} seconds before requesting another code.",
+                    'mail_sent' => false,
+                    'retry_after' => $retryAfter,
+                ], 429)->header('Retry-After', (string) $retryAfter);
+            }
+
+            $otp = (string) random_int(100000, 999999);
+            try {
+                $mailer->sendVerificationCode($user->email, $otp);
+            } catch (\Throwable $exception) {
+                // Transport exceptions can include secrets; log only safe diagnostics.
+                Log::warning('Gmail OTP sending failed.', [
+                    'user_id' => $user->id,
+                    'exception_type' => get_class($exception),
+                    'reason' => $exception instanceof GmailDeliveryException
+                        ? $exception->getMessage() : 'Transport or internal failure.',
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'We could not send your verification email. Please try again later.',
+                    'mail_sent' => false,
+                ], 503);
+            }
+
+            // Preserve the previous usable code if the provider fails.
+            $user->otp_code = $otp;
+            $user->otp_expires_at = now()->addMinutes(10);
+            $user->save();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Verification email sent. Please check your inbox and spam folder.',
+                'mail_sent' => true,
+                'retry_after' => $cooldown,
+            ], 200);
+        } finally {
+            $lock->release();
+        }
     }
 
     // ==========================================
@@ -633,7 +623,7 @@ class AuthController extends Controller
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'otp_code' => 'required|string|size:6',
+            'otp_code' => ['required', 'string', 'regex:/^[0-9]{6}$/'],
         ]);
 
         if ($validator->fails()) {
@@ -642,14 +632,13 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        $isMaster = ($request->otp_code === '123456');
-        $isMatch = ($user->otp_code && (string) $user->otp_code === (string) $request->otp_code);
+        $isMatch = $user->otp_code && hash_equals((string) $user->otp_code, (string) $request->otp_code);
 
-        if (!$isMaster && !$isMatch) {
+        if (!$isMatch) {
             return response()->json(['status' => 'error', 'message' => 'Invalid OTP code.'], 400);
         }
 
-        if (!$isMaster && $user->otp_expires_at && Carbon::now()->greaterThan($user->otp_expires_at)) {
+        if (!$user->otp_expires_at || Carbon::now()->greaterThanOrEqualTo($user->otp_expires_at)) {
             return response()->json(['status' => 'error', 'message' => 'OTP code has expired. Please request a new one.'], 400);
         }
 
