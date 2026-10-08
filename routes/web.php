@@ -33,7 +33,8 @@ Route::get('/storage/{path}', function ($path) {
 Route::middleware(['guest:admin'])->group(function () {
     Route::get('/admin/login', [AuthController::class, 'showLoginForm'])->name('admin.login');
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/admin/login', [AuthController::class, 'login']);
+    Route::post('/admin/login', [AuthController::class, 'login'])->name('admin.login.submit');
+    Route::post('/login', [AuthController::class, 'login']);
 });
 
 // Admin Console Routes (Protected)
