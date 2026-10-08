@@ -570,7 +570,8 @@ class AuthController extends Controller
 
             $cooldown = max(1, (int) config('services.otp.resend_cooldown', 60));
             // The saved expiry also records when the last successful OTP was issued.
-            $nextSendAt = $user->otp_expires_at?->copy()->subMinutes(10)->addSeconds($cooldown);
+            $expiryMinutes = max(1, (int) config('services.otp.expiry_minutes', 5));
+            $nextSendAt = $user->otp_expires_at?->copy()->subMinutes($expiryMinutes)->addSeconds($cooldown);
             if ($nextSendAt && $nextSendAt->isFuture()) {
                 $retryAfter = max(1, (int) ceil(now()->diffInSeconds($nextSendAt)));
 
@@ -603,7 +604,7 @@ class AuthController extends Controller
 
             // Preserve the previous usable code if the provider fails.
             $user->otp_code = $otp;
-            $user->otp_expires_at = now()->addMinutes(10);
+            $user->otp_expires_at = now()->addMinutes($expiryMinutes);
             $user->save();
 
             return response()->json([

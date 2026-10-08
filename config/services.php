@@ -32,6 +32,7 @@ return [
 
     'otp' => [
         'resend_cooldown' => (int) env('OTP_RESEND_COOLDOWN', 60),
+        'expiry_minutes' => (int) env('OTP_EXPIRY_MINUTES', 5),
     ],
 
     'ses' => [

@@ -74,7 +74,7 @@ class EmailOtpTest extends TestCase
             ->assertJsonPath('mail_sent', true)->assertJsonPath('retry_after', 60);
         $user->refresh();
         $this->assertMatchesRegularExpression('/^[0-9]{6}$/', $user->otp_code);
-        $this->assertTrue($user->otp_expires_at->equalTo(now()->addMinutes(10)));
+        $this->assertTrue($user->otp_expires_at->equalTo(now()->addMinutes(5)));
         Http::assertSent(function ($request) use ($user) {
             if (! str_contains($request->url(), 'messages/send')) {
                 return false;
@@ -136,7 +136,7 @@ class EmailOtpTest extends TestCase
     #[DataProvider('providerFailures')]
     public function test_provider_failures_preserve_previous_code_and_do_not_report_success(int $tokenStatus, int $sendStatus, array $body): void
     {
-        $user = $this->user(['otp_code' => '654321', 'otp_expires_at' => now()->addMinutes(8)]);
+        $user = $this->user(['otp_code' => '654321', 'otp_expires_at' => now()->addMinutes(3)]);
         $previousExpiry = $user->otp_expires_at->toISOString();
         Http::fake([
             'oauth2.googleapis.com/token' => Http::sequence()
@@ -157,7 +157,7 @@ class EmailOtpTest extends TestCase
 
     public function test_timeout_preserves_code_and_releases_send_lock(): void
     {
-        $user = $this->user(['otp_code' => '654321', 'otp_expires_at' => now()->addMinutes(8)]);
+        $user = $this->user(['otp_code' => '654321', 'otp_expires_at' => now()->addMinutes(3)]);
         Http::fake([
             'oauth2.googleapis.com/token' => Http::response(['access_token' => 'test-access', 'expires_in' => 3600]),
             'gmail.googleapis.com/*' => Http::sequence()->pushFailedConnection()->push(['id' => 'sent-message-id']),
@@ -180,7 +180,7 @@ class EmailOtpTest extends TestCase
 
     public function test_verifies_only_the_saved_unexpired_code_and_clears_it(): void
     {
-        $user = $this->user(['otp_code' => '654321', 'otp_expires_at' => now()->addMinutes(10)]);
+        $user = $this->user(['otp_code' => '654321', 'otp_expires_at' => now()->addMinutes(5)]);
         $this->postJson('/api/email/verify-otp', ['otp_code' => '123456'])->assertStatus(400);
         $this->assertFalse($user->fresh()->isEmailVerified);
         $this->postJson('/api/email/verify-otp', ['otp_code' => '654321'])->assertOk();

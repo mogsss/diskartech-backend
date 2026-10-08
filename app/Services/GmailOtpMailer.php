@@ -43,18 +43,20 @@ class GmailOtpMailer
             Cache::put($cacheKey, $accessToken, max(1, $expiresIn - 60));
         }
 
+        $expiryMinutes = max(1, (int) config('services.otp.expiry_minutes', 5));
+
         $message = (new Email)
             ->from(new Address($settings['from_address'], 'DiskarTech'))
             ->to($recipient)
             ->subject('Verify Your Email Address | DiskarTech')
             ->text("Hello,\n\nYour DiskarTech verification code is: {$otp}\n\n"
-                ."This code expires in 10 minutes. Do not share it with anyone.\n\n"
+                ."This code expires in {$expiryMinutes} minutes. Do not share it with anyone.\n\n"
                 ."If you did not request this code, please ignore this email.\n\nThe DiskarTech Team")
             ->html('<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px">'
                 .'<h1 style="color:#4f46e5">DiskarTech</h1><p>Hello,</p>'
                 .'<p>Enter this verification code to verify your email address:</p>'
                 .'<p style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#4f46e5">'.$otp.'</p>'
-                .'<p>This code expires in 10 minutes. Do not share it with anyone.</p>'
+                .'<p>This code expires in {$expiryMinutes} minutes. Do not share it with anyone.</p>'
                 .'<p>If you did not request this code, please ignore this email.</p></div>');
 
         $response = Http::withToken($accessToken)->acceptJson()->connectTimeout(5)->timeout($timeout)
