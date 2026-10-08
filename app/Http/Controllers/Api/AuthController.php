@@ -562,9 +562,13 @@ class AuthController extends Controller
 
         $mailSent = false;
 
-        // 1. Send via Resend HTTP API (Port 443 HTTPS - works reliably on Render Free tier)
+        // 1. Send via Resend HTTP API (Port 443 HTTPS - only if custom domain is verified OR sending to registered testing email)
         $resendApiKey = env('RESEND_API_KEY');
-        if ($resendApiKey) {
+        $resendFrom = env('RESEND_FROM', 'DiskarTech <onboarding@resend.dev>');
+        $isTestingDomain = str_contains($resendFrom, 'resend.dev');
+        $canAttemptResend = $resendApiKey && (!$isTestingDomain || strtolower(trim($user->email)) === 'mogoljohnlee@gmail.com');
+
+        if ($canAttemptResend) {
             try {
                 $htmlBody = "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;'>"
                     . "<div style='text-align: center; margin-bottom: 24px;'>"
@@ -581,11 +585,11 @@ class AuthController extends Controller
                     . "<p style='color: #94a3b8; font-size: 12px; text-align: center;'>If you did not register for a DiskarTech account, you can safely ignore this email.</p>"
                     . "</div>";
 
-                $resendResponse = Http::withHeaders([
+                $resendResponse = Http::timeout(4)->withHeaders([
                     'Authorization' => 'Bearer ' . $resendApiKey,
                     'User-Agent' => 'DiskarTech-App/1.0',
                 ])->post('https://api.resend.com/emails', [
-                    'from' => env('RESEND_FROM', 'DiskarTech <onboarding@resend.dev>'),
+                    'from' => $resendFrom,
                     'to' => [$user->email],
                     'subject' => 'Verify Your Email Address | DiskarTech',
                     'text' => $emailBody,
