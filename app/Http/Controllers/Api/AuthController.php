@@ -319,6 +319,60 @@ class AuthController extends Controller
         ], 200);
     }
 
+    // ==========================================
+    // GOOGLE LOGIN
+    // ==========================================
+    public function googleLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'not_registered',
+                'message' => 'Wala pang DiskarTech account na naka-link sa Google email na ito. Mangyaring mag-register muna.',
+            ], 404);
+        }
+
+        // Suriin kung verified ang email
+        if (isset($user->isEmailVerified) && !$user->isEmailVerified) {
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hindi pa verified ang iyong email. Mangyaring ilagay ang 6-digit OTP code na ipinadala sa iyong Gmail.',
+                'token' => $token,
+                'user' => $user
+            ], 403);
+        }
+
+        $profile = null;
+        if ($user->role === 'student') {
+            $profile = Student::where('user_id', $user->id)->first();
+        } elseif ($user->role === 'employer') {
+            $profile = Employer::where('user_id', $user->id)->first();
+        } elseif ($user->role === 'household') {
+            $profile = Household::where('user_id', $user->id)->first();
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Google Login successful!',
+            'token' => $token,
+            'user' => $user,
+            'profile' => $profile
+        ], 200);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();

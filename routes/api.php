@@ -27,6 +27,7 @@ Route::post('/register/household', [AuthController::class, 'registerHousehold'])
 
 // Login Route
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/google-login', [AuthController::class, 'googleLogin']);
 
 // Mga Routes na nangangailangan ng Sanctum Authentication
 Route::middleware(['auth:sanctum'])->group(function () {
