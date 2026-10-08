@@ -72,6 +72,7 @@ class AuthController extends Controller
                 'detailed_address' => $request->detailed_address ?? null,
                 'latitude' => $request->latitude ?? null,
                 'longitude' => $request->longitude ?? null,
+                'avatar' => $request->avatar ?? null,
                 'isVerified' => false,
             ];
 
@@ -102,7 +103,9 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'Student account created successfully! Please verify your email.',
                 'token' => $token,
-                'user' => $user
+                'user' => $user,
+                'student_profile' => $student,
+                'profile' => $student
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -154,6 +157,7 @@ class AuthController extends Controller
                 'latitude' => $request->latitude ?? null,
                 'longitude' => $request->longitude ?? null,
                 'business_type' => $request->business_type ?? null,
+                'avatar' => $request->avatar ?? null,
                 'isVerified' => false,
                 'isSubscribed' => false,
             ];
@@ -182,7 +186,9 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'Employer account created successfully! Please verify your email.',
                 'token' => $token,
-                'user' => $user
+                'user' => $user,
+                'employer_profile' => $employer,
+                'profile' => $employer
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -234,6 +240,7 @@ class AuthController extends Controller
                 'detailed_address' => $request->detailed_address ?? null,
                 'latitude' => $request->latitude ?? null,
                 'longitude' => $request->longitude ?? null,
+                'avatar' => $request->avatar ?? null,
                 'isVerified' => false,
             ];
 
@@ -255,7 +262,8 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'Household account created successfully! Please verify your email.',
                 'token' => $token,
-                'user' => $user
+                'user' => $user,
+                'profile' => $household
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
