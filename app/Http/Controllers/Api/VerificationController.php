@@ -16,8 +16,8 @@ class VerificationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'type' => 'required|string|in:employer,household',
-            'valid_id_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
-            'certificate_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
+            'valid_id_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,jfif,heic,heif,bmp',
+            'certificate_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,jfif,heic,heif,bmp',
         ]);
 
         if ($validator->fails()) {
@@ -52,6 +52,7 @@ class VerificationController extends Controller
                     AnalyzeVerificationDocument::dispatch($profile, $path, $file->getClientMimeType(), 'valid_id');
                 }
 
+            
                 // 2. PROSESO PARA SA BUSINESS CERTIFICATE / PERMIT (Employer lang)
                 if ($request->type === 'employer' && $request->hasFile('certificate_path')) {
                     $certFile = $request->file('certificate_path');

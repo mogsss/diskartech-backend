@@ -180,8 +180,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="py-6 text-center text-slate-400">Wala pang nakabinbing verifications
-                                    sa ngayon.</td>
+                                <td colspan="5" class="py-6 text-center text-slate-400">No pending verifications at this time.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -192,8 +191,33 @@
         <!-- Right Side Widgets -->
         <div class="space-y-6">
             <div class="bg-white rounded-2xl border border-stone-200/80 shadow-sm p-5">
-                <h3 class="font-bold text-slate-900 text-sm mb-4">Flagged content</h3>
-                <p class="text-slate-400 text-center py-4 text-xs">Walang flagged reports sa kasalukuyan.</p>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-900 text-sm">Flagged content</h3>
+                    @if(($flaggedCount ?? 0) > 0)
+                        <span class="bg-rose-50 text-rose-700 font-semibold text-[10px] px-2 py-0.5 rounded-md">
+                            {{ $flaggedCount }} open
+                        </span>
+                    @endif
+                </div>
+
+                @if(!empty($flaggedReports) && $flaggedReports->count() > 0)
+                    <div class="divide-y divide-stone-100 text-xs mb-3">
+                        @foreach($flaggedReports as $rep)
+                            <div class="py-2.5">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-bold text-slate-800 truncate max-w-[160px]">{{ $rep->subject ?: ucfirst(str_replace('_', ' ', $rep->report_type)) }}</span>
+                                    <span class="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded font-semibold">{{ ucfirst(str_replace('_', ' ', $rep->report_type)) }}</span>
+                                </div>
+                                <p class="text-slate-400 text-[11px] truncate">{{ $rep->description }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                    <a href="{{ route('admin.reports') }}" class="block text-center text-xs font-semibold text-red-700 hover:text-red-800 bg-[#F2EDE4] hover:bg-stone-200 py-2 rounded-xl transition">
+                        Manage all reports &rarr;
+                    </a>
+                @else
+                    <p class="text-slate-400 text-center py-4 text-xs">No flagged reports at this time.</p>
+                @endif
             </div>
 
             <!-- Weekly Activity Dark Box -->

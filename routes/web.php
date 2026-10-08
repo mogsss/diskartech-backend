@@ -6,6 +6,9 @@ use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\VerificationController; 
 use App\Http\Controllers\Admin\UserController; // 
+use App\Http\Controllers\Admin\JobModerationController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\MessageController;
 
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -13,6 +16,9 @@ Route::get('/', function () {
     }
     return view('landing');
 });
+
+// Public Working Student Certificate Viewer & PDF Print Route
+Route::get('/certificate/{id}/view', [\App\Http\Controllers\CertificateWebController::class, 'viewCertificate'])->name('certificate.view');
 
 // Guest Admin Routes (Login)
 Route::middleware(['guest:admin'])->group(function () {
@@ -33,10 +39,20 @@ Route::middleware(['auth:admin'])->group(function () {
     // Users Route (Nakalipat na sa UserController)
     Route::get('/admin/users', [UserController::class, 'usersIndex'])->name('admin.users');
 
-    // Static Pages / Other Routes
-    Route::get('/admin/job-moderation', function () {
-        return view('admin.job-moderation');
-    })->name('admin.job-moderation');
+    // Job Moderation Routes
+    Route::get('/admin/job-moderation', [JobModerationController::class, 'index'])->name('admin.job-moderation');
+    Route::post('/admin/job-moderation/{id}/toggle', [JobModerationController::class, 'toggleStatus'])->name('admin.job-moderation.toggle');
+    Route::patch('/admin/job-moderation/{id}/status', [JobModerationController::class, 'updateStatus'])->name('admin.job-moderation.status');
+    Route::delete('/admin/job-moderation/{id}', [JobModerationController::class, 'destroy'])->name('admin.job-moderation.destroy');
+
+    // Reports & Analytics Routes
+    Route::get('/admin/reports', [ReportController::class, 'index'])->name('admin.reports');
+    Route::get('/admin/notifications/poll', [ReportController::class, 'pollNotifications'])->name('admin.notifications.poll');
+    Route::patch('/admin/reports/{id}/status', [ReportController::class, 'updateStatus'])->name('admin.reports.status');
+    Route::delete('/admin/reports/{id}', [ReportController::class, 'destroy'])->name('admin.reports.destroy');
+
+    // Communications & Messages Moderation Route
+    Route::get('/admin/messages', [MessageController::class, 'index'])->name('admin.messages');
 
     Route::get('/admin/settings', function () {
         return view('admin.settings');

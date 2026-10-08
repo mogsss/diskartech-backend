@@ -17,12 +17,20 @@ class DashboardController extends Controller
         $users = User::with(['studentProfile', 'householdProfile', 'employerProfile'])
             ->latest()
             ->get();
+        $flaggedReports = \App\Models\Report::with(['reporter', 'reportedUser', 'job'])
+            ->whereIn('status', ['pending', 'investigating'])
+            ->latest()
+            ->take(3)
+            ->get();
+        $flaggedCount = \App\Models\Report::whereIn('status', ['pending', 'investigating'])->count();
 
         return view('admin.dashboard', compact(
             'users',
             'studentsCount',
             'householdCount',
-            'employerCount'
+            'employerCount',
+            'flaggedReports',
+            'flaggedCount'
         ));
     }
 }

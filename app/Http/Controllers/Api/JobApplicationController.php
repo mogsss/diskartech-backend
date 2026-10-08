@@ -30,6 +30,15 @@ class JobApplicationController extends Controller
                 ], 404);
             }
 
+            // Siguraduhing verified ang student bago makapag-apply
+            if (!$student->isVerified) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Verify your account first before applying for jobs.',
+                    'needs_verification' => true,
+                ], 403);
+            }
+
             // Validahin kung ibinigay ang job_id
             $request->validate([
                 'job_id' => 'required|exists:available_jobs,id',
@@ -97,15 +106,16 @@ class JobApplicationController extends Controller
             if (!$application) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Hindi natagpuan ang aplikasyon o wala kang pahintulot dito.'
+                    'message' => 'Application not found or you do not have permission.'
                 ], 404);
             }
 
-            // I-check kung pending pa ang status bago payagang i-cancel
-            if (strtolower($application->status) !== 'pending') {
+            // I-check kung pending o viewed ang status bago payagang i-cancel
+            $allowedStatuses = ['pending', 'viewed'];
+            if (!in_array(strtolower($application->status), $allowedStatuses)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Hindi na maaaring kanselahin ang aplikasyong ito dahil ito ay ' . $application->status . ' na.'
+                    'message' => 'This application cannot be cancelled because its status is already ' . $application->status . '.'
                 ], 400);
             }
 
@@ -115,15 +125,126 @@ class JobApplicationController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Matagumpay na na-kansela ang aplikasyon.',
+                'message' => 'Application cancelled successfully.',
                 'application' => $application
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'May naganap na server error.',
+                'message' => 'A server error occurred while cancelling the application.',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
+
+    public function deleteApplication($id, Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized user.'
+                ], 401);
+            }
+
+            $student = Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Student profile not found.'
+                ], 404);
+            }
+
+            $application = JobApplication::where('id', $id)
+                ->where('student_id', $student->id)
+                ->first();
+
+            if (!$application) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Application not found or you do not have permission.'
+                ], 404);
+            }
+
+            $allowedStatuses = ['cancelled', 'rejected', 'completed', 'terminated'];
+            if (!in_array(strtolower($application->status), $allowedStatuses)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Active applications cannot be deleted. Please cancel the application first.'
+                ], 400);
+            }
+
+            $application->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Application deleted successfully.'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'A server error occurred while deleting the application.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getApplicationDetails($id, Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized user.'
+                ], 401);
+            }
+
+            $student = Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Student profile not found.'
+                ], 404);
+            }
+
+            $application = JobApplication::with(['job.household.user', 'job.employer.user', 'job.user'])
+                ->where('id', $id)
+                ->where('student_id', $student->id)
+                ->first();
+
+            if (!$application) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Application not found or you do not have permission.'
+                ], 404);
+            }
+
+            // Check if this student has already submitted an incident report for this job or hirer
+            $hasReported = \App\Models\Report::where('reporter_id', $user->id)
+                ->where(function ($q) use ($application) {
+                    $q->where('job_id', $application->job_id);
+                    if ($application->job && $application->job->user_id) {
+                        $q->orWhere('reported_user_id', $application->job->user_id);
+                    }
+                })
+                ->exists();
+
+            $application->has_reported = $hasReported;
+
+            return response()->json([
+                'status' => 'success',
+                'application' => $application,
+                'has_reported' => $hasReported,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Server error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
+
+

@@ -24,10 +24,16 @@ class DashboardController extends Controller
             $profile = Household::where('user_id', $user->id)->first();
         }
 
+        $reviewQuery = \App\Models\Review::where('reviewee_id', $user->id);
+        $reviewCount = $reviewQuery->count();
+        $averageRating = $reviewCount > 0 ? round((float) $reviewQuery->avg('rating'), 1) : 5.0;
+
         return response()->json([
             'status' => 'success',
             'user' => $user,
             'profile' => $profile,
+            'rating' => $averageRating,
+            'review_count' => $reviewCount,
         ], 200);
     }
 }

@@ -35,8 +35,22 @@ return [
         ],
     ],
     
-   'gemini' => [
-    'key' => env('GEMINI_KEY'),
-],
+    'gemini' => [
+        'key' => env('GEMINI_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+        'matching_timeout' => (int) env('GEMINI_MATCHING_TIMEOUT', 15),
+        'matching_connect_timeout' => (int) env('GEMINI_MATCHING_CONNECT_TIMEOUT', 5),
+    ],
+
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'matching_enabled' => env('OPENAI_MATCHING_ENABLED', true),
+        'matching_timeout' => (int) env('OPENAI_MATCHING_TIMEOUT', 5),
+        'matching_quota_cooldown' => (int) env('OPENAI_MATCHING_QUOTA_COOLDOWN', 1800),
+    ],
+
+    'job_matching' => [
+        'fallback_cache_seconds' => (int) env('JOB_MATCHING_FALLBACK_CACHE_SECONDS', 60),
+    ],
 
 ];

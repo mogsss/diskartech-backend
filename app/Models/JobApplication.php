@@ -13,6 +13,23 @@ class JobApplication extends Model
         'job_id',
         'student_id',
         'status',
+        'interview_date',
+        'interview_time',
+        'interview_location',
+        'interview_type',
+        'start_date',
+        'end_date',
+        'work_schedule',
+        'agreed_rate',
+        'special_instructions',
+        'contract_terms',
+        'hired_at',
+        'terminated_at',
+        'termination_reason',
+        'certificate_status',
+        'certificate_requested_at',
+        'certificate_issued_at',
+        'employer_signature',
     ];
 
     public function job()
@@ -24,5 +41,10 @@ class JobApplication extends Model
     public function student()
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'application_id');
     }
 }

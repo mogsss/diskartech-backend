@@ -27,6 +27,12 @@ class Employer extends Model
         'ai_is_valid', // <--- Idagdag ito
         'ai_remarks',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function getDocsCountAttribute()
         {
             $documents = [

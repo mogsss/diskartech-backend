@@ -10,7 +10,8 @@ class VerificationController extends Controller
 {
     public function verificationIndex()
     {
-        $users = User::with(['studentProfile', 'householdProfile', 'employerProfile'])
+        $users = User::whereIn('role', ['student', 'employer', 'household'])
+            ->with(['studentProfile', 'householdProfile', 'employerProfile'])
             ->latest()
             ->get();
 
@@ -40,15 +41,19 @@ class VerificationController extends Controller
             $profile = $user->employerProfile;
         } elseif ($request->role === 'household') {
             $profile = $user->householdProfile;
+        } elseif ($request->role === 'student') {
+            $profile = $user->studentProfile;
         }
 
         if ($profile) {
             $profile->isVerified = false;
             $profile->rejection_reason = $request->rejection_reason;
             $profile->save();
+
+            return redirect()->back()->with('success', 'Application rejected successfully.');
         }
 
-        return redirect()->back()->with('success', 'Application Rejected.');
+        return redirect()->back()->with('error', 'Applicant profile not found.');
     }
 
     public function approveVerification(Request $request, $id)
@@ -72,8 +77,10 @@ class VerificationController extends Controller
             $profile->isVerified = true;
             $profile->rejection_reason = null;
             $profile->save();
+
+            return redirect()->back()->with('success', 'Verification approved successfully.');
         }
 
-        return redirect()->back()->with('success', 'Verification approved successfully.');
+        return redirect()->back()->with('error', 'Applicant profile not found.');
     }
 }

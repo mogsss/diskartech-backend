@@ -12,6 +12,17 @@ class Jobs extends Model
     protected $table = 'available_jobs';
     protected $guarded = [];
 
+    protected $casts = [
+        'available_days' => 'array',
+        'requirements' => 'array',
+        'skills' => 'array',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function household()
     {
         return $this->belongsTo(Household::class, 'user_id', 'user_id');
@@ -26,7 +37,7 @@ class Jobs extends Model
     public function scopeWithDistance($query, $lat, $long)
     {
         return $query->selectRaw(
-            "*, (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
+            "available_jobs.*, (6371 * acos(cos(radians(?)) * cos(radians(available_jobs.latitude)) * cos(radians(available_jobs.longitude) - radians(?)) + sin(radians(?)) * sin(radians(available_jobs.latitude)))) AS distance",
             [$lat, $long, $lat]
         );
     }

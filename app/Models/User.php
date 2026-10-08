@@ -25,6 +25,7 @@ class User extends Authenticatable // 👈 Tinanggal na ang implements MustVerif
         'password',
         'remember_token',
         'otp_code',            
+        'otp_expires_at',
     ];
 
     protected function casts(): array

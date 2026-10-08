@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use App\Models\Jobs;
-use Illuminate\Http\Request;
-use App\Models\Student;
+use App\Jobs\AnalyzeVerificationDocument;
 use App\Models\JobApplication;
+use App\Models\Jobs;
+use App\Models\Student;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class StudentController extends Controller
 {
@@ -22,6 +23,7 @@ class StudentController extends Controller
             'profile' => $student
         ], 200);
     }
+
     public function updatePushToken(Request $request)
     {
         $request->validate([
@@ -73,7 +75,7 @@ class StudentController extends Controller
     public function updateSkills(Request $request)
     {
         $request->validate([
-            'skills' => 'required|array',
+            'skills' => 'present|array',  // ✅ Pinapayagan na ang empty array []
         ]);
 
         $user = $request->user();
@@ -126,7 +128,10 @@ class StudentController extends Controller
                 $folderName .= 'profile_pictures';
             }
 
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $originalName = urldecode($file->getClientOriginalName());
+            $cleanName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+            $cleanName = preg_replace('/_+/', '_', $cleanName);
+            $filename = time() . '_' . trim($cleanName, '_');
             $path = $file->storeAs($folderName, $filename, 'public');
 
             $columnToUpdate = $docType;
@@ -134,9 +139,20 @@ class StudentController extends Controller
                 $columnToUpdate = 'avatar';
             }
 
-            $student->update([
+            $updateData = [
                 $columnToUpdate => $path
-            ]);
+            ];
+
+            if ($docType === 'school_id' || $docType === 'coe') {
+                $updateData['isVerified'] = 0;
+                $updateData['rejection_reason'] = null;
+            }
+
+            $student->update($updateData);
+
+            if ($docType === 'school_id' || $docType === 'coe') {
+                AnalyzeVerificationDocument::dispatch($student, $path, $file->getClientMimeType(), $docType);
+            }
 
             return response()->json([
                 $docType => $path,
@@ -150,45 +166,6 @@ class StudentController extends Controller
         return response()->json(['status' => 'error', 'message' => 'No file uploaded'], 400);
     }
 
-    // Kunin ang mga malalapit na trabaho batay sa 5km radius gamit ang Model Scope
-    public function getNearbyJobs(Request $request)
-    {
-        $user = $request->user();
-        $student = Student::where('user_id', $user->id)->first();
-
-        if (!$student) {
-            return response()->json(['status' => 'error', 'message' => 'Student profile not found'], 404);
-        }
-
-        $studentLat = $student->latitude ?? null;
-        $studentLong = $student->longitude ?? null;
-
-        if (!$studentLat || !$studentLong) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Student location is not set in your profile.'
-            ], 422);
-        }
-
-        $radius = 5;
-
-        $nearbyJobs = Jobs::with(['household', 'employer', 'applications'])
-            ->withDistance($studentLat, $studentLong)
-            ->where('status', 'active')
-            ->having("distance", "<=", $radius)
-            ->orderBy('distance', 'asc')
-            ->get()
-            ->map(function ($job) {
-                $job->applications_count = $job->applications->count();
-                return $job;
-            });
-
-        return response()->json([
-            'status' => 'success',
-            'count' => $nearbyJobs->count(),
-            'jobs' => $nearbyJobs,
-        ], 200);
-    }
 
     public function getAllJobs(Request $request)
     {
@@ -202,7 +179,7 @@ class StudentController extends Controller
         $studentLat = $student->latitude;
         $studentLong = $student->longitude;
 
-        $allJobs = Jobs::with(['household', 'employer', 'applications'])
+        $allJobs = Jobs::with(['household.user', 'employer.user', 'user', 'applications'])
             ->withDistance($studentLat, $studentLong)
             ->where('status', 'active')
             ->orderBy('created_at', 'desc')
@@ -232,8 +209,8 @@ class StudentController extends Controller
             ]);
         }
 
-        // 👇 Isinama na natin ang job.household at job.employer para lumabas ang avatar/profile nila
-        $applications = JobApplication::with(['job.household', 'job.employer'])
+        // 👇 Isinama na natin ang job.household.user, job.employer.user, at job.user para lumabas ang avatar/profile at email nila
+        $applications = JobApplication::with(['job.household.user', 'job.employer.user', 'job.user'])
             ->where('student_id', $student->id)
             ->get();
 
@@ -251,9 +228,16 @@ class StudentController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Student not found'], 404);
         }
 
-        $savedJobs = $student->savedJobs()
-            ->with(['household', 'employer', 'applications'])
-            ->latest()
+        $query = $student
+            ->savedJobs()
+            ->with(['household.user', 'employer.user', 'user', 'applications']);
+
+        if ($student->latitude && $student->longitude) {
+            $query->withDistance($student->latitude, $student->longitude);
+        }
+
+        $savedJobs = $query
+            ->orderBy('saved_jobs.created_at', 'desc')
             ->get()
             ->map(function ($job) {
                 $job->applications_count = $job->applications->count();

@@ -76,7 +76,7 @@
                 </div>
             @empty
                 <div class="py-12 text-center text-slate-400">
-                    Wala pang rehistradong users o walang tumutugma sa iyong hinahanap.
+                    No registered users found matching your search criteria.
                 </div>
             @endforelse
         </div>

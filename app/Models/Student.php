@@ -31,8 +31,14 @@ class Student extends Model
         'latitude',
         'longitude',
         'isVerified',
+        'rejection_reason',
+        'school_id_ai_is_valid',
+        'school_id_ai_remarks',
+        'coe_ai_is_valid',
+        'coe_ai_remarks',
         'status',
-        'avatar'
+        'avatar',
+        'expo_push_token',
     ];
 
     // 👇 Idagdag ito para sa JSON casting ng available_days

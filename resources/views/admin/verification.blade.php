@@ -30,19 +30,27 @@
         @endforeach
     </div>
 
+    @if(session('success'))
+        <div class="mb-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center space-x-2">
+            <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span>{{ session('success') }}</span>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2">
+            <svg class="w-4 h-4 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
+
     <!-- Verification Queue Section wrapped with Alpine Data -->
     <div x-data="{ 
         openModal: false, 
-        selectedUserId: '', selectedName: '', selectedRole: '', selectedRoleLower: '',
-        selectedRef: '', selectedValid: '', selectedRemarks: '', selectedCertValid: '',
-        selectedCertRemarks: '', idUrl: '', certUrl: '',
-        showReview(userId, name, role, ref, valid, remarks, certValid, certRemarks, idUrl, certUrl) {
-            this.selectedUserId = userId; this.selectedName = name;
-            this.selectedRole = role.charAt(0).toUpperCase() + role.slice(1);
-            this.selectedRoleLower = role.toLowerCase(); this.selectedRef = ref;
-            this.selectedValid = valid; this.selectedRemarks = remarks;
-            this.selectedCertValid = certValid; this.selectedCertRemarks = certRemarks;
-            this.idUrl = idUrl; this.certUrl = certUrl; this.openModal = true;
+        applicant: {},
+        showReview(data) {
+            this.applicant = data;
+            this.openModal = true;
         }
     }" class="bg-white rounded-2xl border border-stone-200/80 shadow-sm p-6 relative">
         <div class="flex justify-between items-center mb-6">
@@ -92,9 +100,9 @@
                             $hasUploadedDocs = !str_starts_with($docsCountText, '0 of');
 
                             $referenceText = match ($user->role) {
-                                'student' => optional($profile)->student_school_name ?? 'Student School',
-                                'employer' => optional($profile)->employer_name ?? 'Business Name',
-                                'household' => optional($profile)->household_name ?? '',
+                                'student' => optional($profile)->student_school_name ?? 'N/A',
+                                'employer' => optional($profile)->employer_name ?? 'N/A',
+                                'household' => optional($profile)->household_name ?? 'N/A',
                                 default => 'N/A',
                             };
 
@@ -107,8 +115,35 @@
 
                             $isVerifiedStatus = optional($profile)->isVerified;
                             $rejectionReason = optional($profile)->rejection_reason;
+
                             $idPath = optional($profile)->valid_id_path ? asset('storage/' . optional($profile)->valid_id_path) : '';
                             $certPath = optional($profile)->employer_certificate_path ? asset('storage/' . optional($profile)->employer_certificate_path) : '';
+                            $schoolIdPath = ($user->role === 'student' && optional($profile)->school_id) ? asset('storage/' . optional($profile)->school_id) : '';
+                            $resumePath = ($user->role === 'student' && optional($profile)->student_resume) ? asset('storage/' . optional($profile)->student_resume) : '';
+                            $coePath = ($user->role === 'student' && optional($profile)->coe) ? asset('storage/' . optional($profile)->coe) : '';
+
+                            $reviewPayload = [
+                                'userId' => $user->id,
+                                'name' => $applicantName,
+                                'role' => ucfirst($user->role),
+                                'roleLower' => strtolower($user->role),
+                                'reference' => $referenceText,
+                                'isValid' => optional($profile)->ai_is_valid,
+                                'remarks' => optional($profile)->ai_remarks ?? 'No remarks.',
+                                'certIsValid' => optional($profile)->cert_ai_is_valid,
+                                'certRemarks' => optional($profile)->cert_ai_remarks ?? 'No remarks.',
+                                'schoolIdAiIsValid' => optional($profile)->school_id_ai_is_valid,
+                                'schoolIdAiRemarks' => optional($profile)->school_id_ai_remarks ?? 'No remarks.',
+                                'coeAiIsValid' => optional($profile)->coe_ai_is_valid,
+                                'coeAiRemarks' => optional($profile)->coe_ai_remarks ?? 'No remarks.',
+                                'idUrl' => $idPath,
+                                'certUrl' => $certPath,
+                                'schoolIdUrl' => $schoolIdPath,
+                                'resumeUrl' => $resumePath,
+                                'coeUrl' => $coePath,
+                                'isComplete' => $isComplete,
+                                'isVerified' => (bool)$isVerifiedStatus,
+                            ];
                         @endphp
 
                         <tr class="hover:bg-stone-50/50 transition">
@@ -132,29 +167,24 @@
                                 @endif
                             </td>
                             <td class="py-3.5 text-right space-x-1">
-                                @if($isComplete)
+                                @if($isVerifiedStatus == 1)
+                                    <span class="bg-emerald-50 text-emerald-600 font-medium text-[11px] px-3 py-1.5 rounded-lg border border-emerald-100">Approved</span>
+                                @elseif($isComplete)
                                     <form action="{{ route('admin.verification.approve', $user->id) }}" method="POST"
                                         class="inline">
                                         @csrf
                                         <input type="hidden" name="role" value="{{ $user->role }}">
-                                        <button type="submit" onclick="return confirm('I-approve ang verification na ito?')"
+                                        <button type="submit" onclick="return confirm('Approve this verification application?')"
                                             class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition">Approve</button>
                                     </form>
                                 @else
-                                    <button disabled
+                                    <button disabled title="All required documents must be uploaded before approval"
                                         class="bg-stone-200 text-stone-400 font-medium text-[11px] px-3 py-1.5 rounded-lg cursor-not-allowed">Approve</button>
                                 @endif
 
-                                {{-- Review Button: Disabled kung wala pang na-upload na docs --}}
+                                {{-- Review Button: Disabled if no docs uploaded --}}
                                 @if($hasUploadedDocs)
-                                    <button @click="showReview(
-                                                            '{{ $user->id }}', '{{ addslashes($applicantName) }}', '{{ $user->role }}', 
-                                                            '{{ addslashes($referenceText) }}', '{{ optional($profile)->ai_is_valid }}', 
-                                                            '{{ addslashes(optional($profile)->ai_remarks ?? 'No remarks.') }}', 
-                                                            '{{ optional($profile)->cert_ai_is_valid }}', 
-                                                            '{{ addslashes(optional($profile)->cert_ai_remarks ?? 'No remarks.') }}',
-                                                            '{{ $idPath }}', '{{ $certPath }}'
-                                                        )"
+                                    <button @click="showReview(@js($reviewPayload))"
                                         class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-medium text-[11px] px-3 py-1.5 rounded-lg transition">
                                         Review
                                     </button>
@@ -169,7 +199,7 @@
                     @empty
                         <tr>
                             <td colspan="6" class="py-8 text-center text-slate-400">
-                                Wala pang mga aplikante o naghihintay na verifications sa ngayon.
+                                No applicants or pending verification requests at this time.
                             </td>
                         </tr>
                     @endforelse

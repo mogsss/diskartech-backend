@@ -83,7 +83,14 @@ class AuthController extends Controller
                 $studentData['student_resume'] = $request->file('resume_path')->store('students/resumes', 'public');
             }
 
-            Student::create($studentData);
+            $student = Student::create($studentData);
+
+            if ($request->hasFile('school_id_path') && !empty($studentData['school_id'])) {
+                AnalyzeVerificationDocument::dispatch($student, $studentData['school_id'], $request->file('school_id_path')->getClientMimeType(), 'school_id');
+            }
+            if ($request->hasFile('coe_path') && !empty($studentData['coe'])) {
+                AnalyzeVerificationDocument::dispatch($student, $studentData['coe'], $request->file('coe_path')->getClientMimeType(), 'coe');
+            }
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -156,7 +163,14 @@ class AuthController extends Controller
                 $employerData['valid_id_path'] = $request->file('valid_id_path')->store('employers/validID', 'public');
             }
 
-            Employer::create($employerData);
+            $employer = Employer::create($employerData);
+
+            if ($request->hasFile('certificate_path') && !empty($employerData['employer_certificate_path'])) {
+                AnalyzeVerificationDocument::dispatch($employer, $employerData['employer_certificate_path'], $request->file('certificate_path')->getClientMimeType(), 'certificate');
+            }
+            if ($request->hasFile('valid_id_path') && !empty($employerData['valid_id_path'])) {
+                AnalyzeVerificationDocument::dispatch($employer, $employerData['valid_id_path'], $request->file('valid_id_path')->getClientMimeType(), 'valid_id');
+            }
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -225,7 +239,11 @@ class AuthController extends Controller
                 $householdData['valid_id_path'] = $request->file('valid_id_path')->store('households/validIDs', 'public');
             }
 
-            Household::create($householdData);
+            $household = Household::create($householdData);
+
+            if ($request->hasFile('valid_id_path') && !empty($householdData['valid_id_path'])) {
+                AnalyzeVerificationDocument::dispatch($household, $householdData['valid_id_path'], $request->file('valid_id_path')->getClientMimeType(), 'valid_id');
+            }
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -318,10 +336,196 @@ class AuthController extends Controller
         
         $profile = $user->householdProfile ?? $user->employerProfile ?? $user->studentProfile;
 
+        // Calculate average rating and review count from official contract reviews
+        $reviewQuery = \App\Models\Review::where('reviewee_id', $user->id);
+        $reviewCount = $reviewQuery->count();
+        $averageRating = $reviewCount > 0 ? round((float) $reviewQuery->avg('rating'), 1) : 5.0;
+
         return response()->json([
             'status' => 'success',
-            'profile' => $profile
+            'profile' => $profile,
+            'rating' => $averageRating,
+            'review_count' => $reviewCount,
         ], 200);
+    }
+
+    public function getPublicUserProfile($id)
+    {
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+
+        $profile = $user->householdProfile ?? $user->employerProfile ?? $user->studentProfile;
+        $isVerified = false;
+        if ($profile) {
+            $isVerified = (bool) ($profile->isVerified ?? false);
+        }
+
+        $name = $profile->student_name ?? $profile->household_name ?? $profile->employer_name ?? $user->name ?? 'User';
+        $avatar = $profile->avatar ?? $profile->profile_picture ?? null;
+        $avatarUrl = null;
+        if ($avatar) {
+            $avatarUrl = str_starts_with($avatar, 'http') ? $avatar : url('storage/' . $avatar);
+        }
+
+        // Calculate average rating and review count from official contract reviews
+        $reviewQuery = \App\Models\Review::where('reviewee_id', $user->id);
+        $reviewCount = $reviewQuery->count();
+        $averageRating = $reviewCount > 0 ? round((float) $reviewQuery->avg('rating'), 1) : 5.0;
+
+        return response()->json([
+            'status' => 'success',
+            'user' => [
+                'id' => $user->id,
+                'role' => $user->role,
+                'name' => $name,
+                'avatar' => $avatarUrl,
+                'isVerified' => $isVerified,
+                'rating' => $averageRating,
+                'review_count' => $reviewCount,
+                'email' => $user->email,
+                'phone' => $profile->contact_number ?? null,
+                'location' => $profile->location ?? null,
+                'detailed_address' => $profile->detailed_address ?? null,
+                'school' => $profile->student_school_name ?? null,
+                'course' => $profile->course ?? null,
+                'year_level' => $profile->year_level ?? null,
+                'skills' => $profile->skillset ?? [],
+                'business_name' => $profile->business_name ?? null,
+                'business_type' => $profile->business_type ?? null,
+                'about' => $profile->description ?? null,
+            ]
+        ], 200);
+    }
+
+    public function getVerificationStatuses(Request $request)
+    {
+        $ids = $request->query('ids');
+        if (empty($ids)) {
+            return response()->json(['status' => 'success', 'statuses' => (object)[]]);
+        }
+
+        $idArray = is_array($ids) ? $ids : explode(',', $ids);
+        $idArray = array_filter(array_map('trim', $idArray));
+
+        $users = User::whereIn('id', $idArray)
+            ->with(['studentProfile', 'employerProfile', 'householdProfile'])
+            ->get();
+
+        $statuses = [];
+        foreach ($users as $user) {
+            $profile = $user->householdProfile ?? $user->employerProfile ?? $user->studentProfile;
+            $name = $profile->student_name ?? $profile->household_name ?? $profile->employer_name ?? $user->name ?? 'User';
+            $avatar = $profile->avatar ?? $profile->profile_picture ?? null;
+            $avatarUrl = null;
+            if ($avatar) {
+                $avatarUrl = str_starts_with($avatar, 'http') ? $avatar : url('storage/' . $avatar);
+            }
+
+            $statuses[$user->id] = [
+                'isVerified' => (bool) ($profile->isVerified ?? false),
+                'name' => $name,
+                'avatar' => $avatarUrl,
+                'role' => $user->role,
+            ];
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'statuses' => (object) $statuses
+        ]);
+    }
+
+    public function updateUserProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role === 'student') {
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json(['status' => 'error', 'message' => 'Student profile not found'], 404);
+            }
+
+            $updateData = [];
+            if ($request->filled('first_name') && $request->filled('last_name')) {
+                $updateData['student_name'] = trim($request->first_name . ' ' . ($request->middle_name ?? '') . ' ' . $request->last_name);
+            } elseif ($request->filled('student_name')) {
+                $updateData['student_name'] = $request->student_name;
+            } elseif ($request->filled('name')) {
+                $updateData['student_name'] = $request->name;
+            }
+
+            if ($request->filled('school')) $updateData['student_school_name'] = $request->school;
+            if ($request->filled('student_school_name')) $updateData['student_school_name'] = $request->student_school_name;
+            if ($request->filled('course')) $updateData['course'] = $request->course;
+            if ($request->filled('year_level')) $updateData['year_level'] = $request->year_level;
+            if ($request->filled('location')) $updateData['location'] = $request->location;
+            if ($request->filled('detailed_address')) $updateData['detailed_address'] = $request->detailed_address;
+            if ($request->filled('latitude')) $updateData['latitude'] = $request->latitude;
+            if ($request->filled('longitude')) $updateData['longitude'] = $request->longitude;
+            if ($request->filled('contact_number')) $updateData['contact_number'] = $request->contact_number;
+            if ($request->filled('phone_number')) $updateData['contact_number'] = $request->phone_number;
+
+            $student->update($updateData);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Student profile updated successfully!',
+                'profile' => $student,
+                'user' => $user
+            ], 200);
+        } elseif ($user->role === 'employer') {
+            $employer = \App\Models\Employer::where('user_id', $user->id)->first();
+            if (!$employer) {
+                return response()->json(['status' => 'error', 'message' => 'Employer profile not found'], 404);
+            }
+
+            $updateData = [];
+            if ($request->filled('name')) $updateData['employer_name'] = $request->name;
+            if ($request->filled('employer_name')) $updateData['employer_name'] = $request->employer_name;
+            if ($request->filled('business_type')) $updateData['business_type'] = $request->business_type;
+            if ($request->filled('location')) $updateData['location'] = $request->location;
+            if ($request->filled('detailed_address')) $updateData['detailed_address'] = $request->detailed_address;
+            if ($request->filled('latitude')) $updateData['latitude'] = $request->latitude;
+            if ($request->filled('longitude')) $updateData['longitude'] = $request->longitude;
+            if ($request->filled('contact_number')) $updateData['contact_number'] = $request->contact_number;
+
+            $employer->update($updateData);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Employer profile updated successfully!',
+                'profile' => $employer,
+                'user' => $user
+            ], 200);
+        } elseif ($user->role === 'household') {
+            $household = \App\Models\Household::where('user_id', $user->id)->first();
+            if (!$household) {
+                return response()->json(['status' => 'error', 'message' => 'Household profile not found'], 404);
+            }
+
+            $updateData = [];
+            if ($request->filled('name')) $updateData['household_name'] = $request->name;
+            if ($request->filled('household_name')) $updateData['household_name'] = $request->household_name;
+            if ($request->filled('location')) $updateData['location'] = $request->location;
+            if ($request->filled('detailed_address')) $updateData['detailed_address'] = $request->detailed_address;
+            if ($request->filled('latitude')) $updateData['latitude'] = $request->latitude;
+            if ($request->filled('longitude')) $updateData['longitude'] = $request->longitude;
+            if ($request->filled('contact_number')) $updateData['cp_number'] = $request->contact_number;
+            if ($request->filled('cp_number')) $updateData['cp_number'] = $request->cp_number;
+
+            $household->update($updateData);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Household profile updated successfully!',
+                'profile' => $household,
+                'user' => $user
+            ], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'Invalid user role'], 400);
     }
 
     // ==========================================
@@ -334,12 +538,19 @@ class AuthController extends Controller
         $otp = rand(100000, 999999);
 
         $user->otp_code = $otp;
-        $user->otp_expires_at = Carbon::now()->addMinutes(10);
+        $user->otp_expires_at = Carbon::now()->addMinutes(2);
         $user->save();
 
-        Mail::raw("Your DiskarTech verification code is: {$otp}. It expires in 10 minutes.", function ($message) use ($user) {
+        $emailBody = "Hello,\n\n"
+            . "Please use the following verification code to verify your email address for DiskarTech:\n\n"
+            . "{$otp}\n\n"
+            . "This code expires in 2 minutes. For your security, do not share it with anyone.\n\n"
+            . "If you did not request this code, please disregard this email.\n\n"
+            . "The DiskarTech Team";
+
+        Mail::raw($emailBody, function ($message) use ($user) {
             $message->to($user->email)
-                    ->subject('Your Verification OTP Code');
+                    ->subject('Verify Your Email Address | DiskarTech');
         });
 
         return response()->json([
