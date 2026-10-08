@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DiskarTech</title>
+    <title>DiskarTech - Super Admin</title>
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -50,9 +53,7 @@
         <div>
             <!-- Logo & Brand -->
             <div class="flex items-center space-x-3 mb-8">
-                <div class="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-sm">
-                    D
-                </div>
+                <img src="{{ asset('logo.png') }}" alt="DiskarTech Logo" class="w-12 h-12 rounded-2xl shadow-sm object-cover">
                 <div>
                     <h1 class="font-bold text-slate-900 leading-tight">DiskarTech</h1>
                     <p class="text-xs text-slate-500 font-medium">Super Admin</p>

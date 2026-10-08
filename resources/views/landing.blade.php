@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DiskarTech | Student & Worker Gigs Platform</title>
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -12,9 +15,7 @@
     <!-- Navigation Bar -->
     <header class="max-w-7xl w-full mx-auto px-8 py-6 flex justify-between items-center">
         <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-red-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-sm">
-                D
-            </div>
+            <img src="{{ asset('logo.png') }}" alt="DiskarTech Logo" class="w-10 h-10 rounded-2xl shadow-sm object-cover">
             <h1 class="font-bold text-slate-900 text-lg">DiskarTech</h1>
         </div>
         <div class="flex items-center space-x-4">
