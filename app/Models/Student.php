@@ -43,6 +43,7 @@ class Student extends Model
     protected $casts = [
         'available_days' => 'array',
         'skillset' => 'array',
+        'isVerified' => 'boolean',
     ];
 
     public function user()
