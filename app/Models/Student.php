@@ -23,7 +23,6 @@ class Student extends Model
         'time_slot',
         'year_level',
         'contact_number',
-        'contact_person',
         'age',
         'gender',
         'location',
@@ -36,7 +35,6 @@ class Student extends Model
         'school_id_ai_remarks',
         'coe_ai_is_valid',
         'coe_ai_remarks',
-        'status',
         'avatar',
         'expo_push_token',
     ];

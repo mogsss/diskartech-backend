@@ -23,9 +23,12 @@ class Employer extends Model
         'business_type',
         'isVerified',        // <--- Idinagdag para sa boolean verification
         'isSubscribed',      // <--- Idinagdag para sa subscription status
-        'status',            // <--- Kasama na rin kung ginagamit mo ito
+        'rejection_reason',
+        'avatar',
         'ai_is_valid', // <--- Idagdag ito
         'ai_remarks',
+        'cert_ai_is_valid',
+        'cert_ai_remarks',
     ];
 
     public function user()
