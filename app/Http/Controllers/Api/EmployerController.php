@@ -118,6 +118,10 @@ class EmployerController extends Controller
     {
         $request->validate([
             'status' => 'required|in:accepted,rejected,interview,cancelled,terminated,completed',
+            'interview_type' => 'required_if:status,interview|in:walk-in,online',
+            'interview_date' => 'required_if:status,interview|nullable|date',
+            'interview_time' => 'required_if:status,interview|nullable|date_format:h:i A',
+            'interview_location' => 'required_if:interview_type,walk-in|nullable|string|max:2000',
             // Additional fields when hiring is confirmed
             'start_date' => 'sometimes|nullable|string|max:255',
             'end_date' => 'sometimes|nullable|string|max:255',
@@ -137,6 +141,10 @@ class EmployerController extends Controller
                 'message' => 'Application not found'
             ], 404);
         }
+
+        abort_unless(in_array($request->user()->role, ['employer', 'household'], true)
+            && (int) $application->job?->user_id === (int) $request->user()->id,
+            403, 'You cannot update this application.');
 
         $application->status = $request->status;
         // If the application is being accepted, capture hiring details
@@ -182,6 +190,9 @@ class EmployerController extends Controller
         }
         if ($request->has('interview_type')) {
             $application->interview_type = $request->interview_type;
+            if ($request->interview_type === 'online') {
+                $application->interview_location = 'DiskarTech video call';
+            }
         }
 
         $application->save();
