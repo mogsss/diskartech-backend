@@ -67,6 +67,7 @@ class InterviewCallTest extends TestCase
         $this->login(1);
         $owner = $this->postJson('/api/applications/27/interview-call/token', ['room' => 'unrelated', 'identity' => 'attacker'])
             ->assertOk()->assertJsonPath('server_url', 'wss://test.livekit.cloud')->assertHeader('Cache-Control', 'no-store, private');
+        $this->assertArrayNotHasKey('diagnostics', $owner->json());
         $claims = $this->decode($owner);
         $this->assertSame('user-1', $claims->sub);
         $this->assertSame('API-local-test', $claims->iss);
@@ -94,6 +95,30 @@ class InterviewCallTest extends TestCase
             $this->login($id, $role);
             $this->postJson('/api/applications/27/interview-call/token')->assertForbidden();
         }
+    }
+
+    public function test_whitespace_is_normalized_and_diagnostics_compare_signing_configuration_without_credentials(): void
+    {
+        $this->login(1);
+        config([
+            'services.livekit.url' => " wss://test.livekit.cloud/\n",
+            'services.livekit.api_key' => " API-local-test\r\n",
+            'services.livekit.api_secret' => "\n".self::SECRET." \r\n",
+        ]);
+        $response = $this->postJson('/api/applications/27/interview-call/token', ['diagnostics' => true])
+            ->assertOk()->assertJsonPath('server_url', 'wss://test.livekit.cloud')
+            ->assertJsonPath('diagnostics.signing_key_fingerprint', substr(hash_hmac('sha256', 'diskartech-livekit-config-check-v1', self::SECRET), 0, 16))
+            ->assertJsonPath('diagnostics.secret_length', strlen(self::SECRET))
+            ->assertJsonPath('diagnostics.credential_whitespace_removed', true);
+        $this->assertSame('API-local-test', $this->decode($response)->iss);
+        $this->assertStringNotContainsString(self::SECRET, $response->getContent());
+
+        config(['services.livekit.api_secret' => 'different-test-secret-at-least-32-characters']);
+        $changed = $this->postJson('/api/applications/27/interview-call/token', ['diagnostics' => true])->assertOk();
+        $this->assertNotSame($response->json('diagnostics.signing_key_fingerprint'), $changed->json('diagnostics.signing_key_fingerprint'));
+        $this->assertStringNotContainsString('different-test-secret-at-least-32-characters', $changed->getContent());
+        $this->login(3);
+        $this->postJson('/api/applications/27/interview-call/token', ['diagnostics' => true])->assertForbidden();
     }
 
     public function test_inactive_walk_in_and_unscheduled_interviews_cannot_join(): void

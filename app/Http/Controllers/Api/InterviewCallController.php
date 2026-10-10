@@ -23,9 +23,11 @@ class InterviewCallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'This application does not have an active online interview.'], 422);
         }
 
-        $url = (string) config('services.livekit.url');
-        $key = (string) config('services.livekit.api_key');
-        $secret = (string) config('services.livekit.api_secret');
+        $url = trim((string) config('services.livekit.url'));
+        $rawKey = (string) config('services.livekit.api_key');
+        $rawSecret = (string) config('services.livekit.api_secret');
+        $key = trim($rawKey);
+        $secret = trim($rawSecret);
         if (!preg_match('~^wss://[a-zA-Z0-9.-]+(?::\d+)?/?$~', $url) || !$key || strlen($secret) < 32) {
             return response()->json(['status' => 'error', 'message' => 'Video calls are not configured yet. Please contact support.'], 503);
         }
@@ -44,9 +46,20 @@ class InterviewCallController extends Controller
             ],
         ], $secret, 'HS256');
 
-        return response()->json([
+        $response = [
             'status' => 'success', 'server_url' => rtrim($url, '/'), 'token' => $token,
             'title' => $application->job?->title ?? 'Online interview',
-        ])->header('Cache-Control', 'no-store, private');
+        ];
+        if ($request->boolean('diagnostics')) {
+            // A comparison tag only: it cannot authenticate to LiveKit or reveal the secret.
+            // The authorized caller already receives a JWT signed with this same secret.
+            $response['diagnostics'] = [
+                'signing_key_fingerprint' => substr(hash_hmac('sha256', 'diskartech-livekit-config-check-v1', $secret), 0, 16),
+                'secret_length' => strlen($secret),
+                'credential_whitespace_removed' => $rawKey !== $key || $rawSecret !== $secret,
+            ];
+        }
+
+        return response()->json($response)->header('Cache-Control', 'no-store, private');
     }
 }

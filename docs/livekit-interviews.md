@@ -43,4 +43,12 @@ Install that build on both phones and open the app through the development clien
 
 Backend tests verify token signature, grants, participant permissions, room pairing, rescheduling, invalid states and scheduling validation. Local simulated frontend checks cover platform guards and resource cleanup; a real call must still be verified on the new APK with the deployed backend. Provider outages/quota limits can cause connection failures and are shown through the app's NotificationModal.
 
+## Troubleshooting invalid tokens
+
+In development builds, joining requests optional diagnostics through the same authenticated, permission-checked token endpoint. The console prints a key fingerprint, token timing, the result of direct LiveKit token validation, and a signing-configuration comparison tag. It does not print tokens or raw secrets. Production builds do not request these diagnostics.
+
+The comparison tag is a shortened HMAC of a fixed diagnostic label, not an access token. Compare it with a tag computed privately from the local configuration to check whether Render uses the same signing secret. Different tags mean different secrets, even if the API key matches. `secretLength` and `credentialWhitespaceRemoved` help identify accidental pasted prefixes or whitespace. Leading/trailing whitespace in the configured URL, key and secret is normalized before signing. A changed Render environment value must be applied to the running deployment before testing again.
+
+Free Render services can show a Shell menu while disallowing shell access; these development diagnostics do not require a paid shell or a public diagnostic endpoint.
+
 References: [LiveKit tokens and grants](https://docs.livekit.io/frontends/reference/tokens-grants/), [LiveKit Expo setup](https://docs.livekit.io/transport/sdk-platforms/expo/).
