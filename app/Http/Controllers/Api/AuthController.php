@@ -556,9 +556,14 @@ class AuthController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Employer profile not found'], 404);
             }
 
+            $request->validate([
+                'hirer_name' => 'sometimes|required|string|max:255',
+            ]);
+
             $updateData = [];
             if ($request->filled('name')) $updateData['employer_name'] = $request->name;
             if ($request->filled('employer_name')) $updateData['employer_name'] = $request->employer_name;
+            if ($request->filled('hirer_name')) $updateData['hirer_name'] = trim($request->hirer_name);
             if ($request->filled('business_type')) $updateData['business_type'] = $request->business_type;
             if ($request->filled('location')) $updateData['location'] = $request->location;
             if ($request->filled('detailed_address')) $updateData['detailed_address'] = $request->detailed_address;
