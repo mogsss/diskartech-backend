@@ -146,6 +146,8 @@ class StudentController extends Controller
             if ($docType === 'school_id' || $docType === 'coe') {
                 $updateData['isVerified'] = 0;
                 $updateData['rejection_reason'] = null;
+                $updateData[$docType . '_ai_is_valid'] = null;
+                $updateData[$docType . '_ai_remarks'] = null;
             }
 
             $student->update($updateData);

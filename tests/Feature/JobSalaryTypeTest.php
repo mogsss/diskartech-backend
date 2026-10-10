@@ -143,6 +143,24 @@ class JobSalaryTypeTest extends TestCase
         $this->putJson("/api/jobs/{$id}", $this->payload())->assertOk()->assertJsonPath('job.salary_type', 'hour');
     }
 
+    #[DataProvider('rolesAndUnits')]
+    public function test_two_time_slots_round_trip_through_existing_create_read_and_edit_api(string $role, string $unit): void
+    {
+        $this->login($role);
+        $schedule = 'Morning (6AM - 12PM) & Evening (6PM - 10PM)';
+        $payload = array_replace($this->payload(), ['time_slot' => $schedule, 'salary_type' => $unit]);
+        $id = $this->postJson('/api/jobs', $payload)->assertCreated()
+            ->assertJsonPath('job.time_slot', $schedule)->json('job.id');
+        $this->assertDatabaseHas('available_jobs', ['id' => $id, 'time_slot' => $schedule, 'salary_type' => $unit]);
+        $this->getJson("/api/jobs/{$id}")->assertOk()->assertJsonPath('job.time_slot', $schedule);
+
+        foreach (['Morning (6AM - 12PM) & Afternoon (1PM - 5PM)', 'Whole Day'] as $editedSchedule) {
+            $this->putJson("/api/jobs/{$id}", array_replace($payload, ['time_slot' => $editedSchedule]))
+                ->assertOk()->assertJsonPath('job.time_slot', $editedSchedule)->assertJsonPath('job.salary_type', $unit);
+            $this->getJson("/api/jobs/{$id}")->assertOk()->assertJsonPath('job.time_slot', $editedSchedule);
+        }
+    }
+
     public function test_invalid_units_are_rejected_without_creating_or_changing_jobs(): void
     {
         $this->login('employer');
