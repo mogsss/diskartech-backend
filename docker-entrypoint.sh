@@ -15,6 +15,9 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache || true
 # Generate app storage symlink if not already created
 php artisan storage:link || true
 
+# Job posting requires this column; fail startup if its migration cannot complete.
+php artisan migrate --path=database/migrations/2026_10_10_120000_add_salary_type_to_available_jobs_table.php --force --no-interaction
+
 # Run database migrations automatically on deployment
 php artisan migrate --force || true
 
