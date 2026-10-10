@@ -17,6 +17,7 @@ class JobApplication extends Model
         'interview_time',
         'interview_location',
         'interview_type',
+        'interview_ended_at',
         'start_date',
         'end_date',
         'work_schedule',
@@ -31,6 +32,11 @@ class JobApplication extends Model
         'certificate_issued_at',
         'employer_signature',
     ];
+
+    protected function casts(): array
+    {
+        return ['interview_ended_at' => 'datetime'];
+    }
 
     public function job()
     {

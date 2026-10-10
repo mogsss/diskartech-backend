@@ -116,6 +116,9 @@ class EmployerController extends Controller
 
     public function updateApplicationStatus(Request $request, $applicationId)
     {
+        if (is_string($request->input('interview_time'))) {
+            $request->merge(['interview_time' => $this->normalizeInterviewTime($request->input('interview_time'))]);
+        }
         $request->validate([
             'status' => 'required|in:accepted,rejected,interview,cancelled,terminated,completed',
             'interview_type' => 'required_if:status,interview|in:walk-in,online',
@@ -195,6 +198,10 @@ class EmployerController extends Controller
             }
         }
 
+        // Only a new/changed interview schedule reopens an ended interview.
+        if ($request->status === 'interview' && $application->isDirty(['status', 'interview_date', 'interview_time', 'interview_type'])) {
+            $application->interview_ended_at = null;
+        }
         $application->save();
 
         return response()->json([
@@ -203,6 +210,22 @@ class EmployerController extends Controller
             'application' => $application
         ]);
     }
+    private function normalizeInterviewTime(string $value): string
+    {
+        // Mobile locale formatters can emit NBSP, narrow NBSP or direction marks.
+        $text = preg_replace('/[\x{200E}\x{200F}\x{2066}-\x{2069}\x{FEFF}]/u', '', $value);
+        $text = strtoupper(trim(preg_replace('/[\p{Z}\s]+/u', ' ', $text ?? $value) ?? $value));
+        if (preg_match('/^(0?[1-9]|1[0-2]):([0-5]\d)(?::00)?\s*([AP]M)$/', $text, $parts)) {
+            return sprintf('%02d:%s %s', (int) $parts[1], $parts[2], $parts[3]);
+        }
+        if (preg_match('/^([01]?\d|2[0-3]):([0-5]\d)(?::00)?$/', $text, $parts)) {
+            $hour = (int) $parts[1];
+            return sprintf('%02d:%s %s', $hour % 12 ?: 12, $parts[2], $hour >= 12 ? 'PM' : 'AM');
+        }
+
+        return $value; // Leave invalid values for the existing validation to reject.
+    }
+
     public function deleteApplication($applicationId)
     {
         try {

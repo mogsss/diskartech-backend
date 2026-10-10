@@ -31,6 +31,10 @@ Route::post('/google-login', [AuthController::class, 'googleLogin']);
 
 // Mga Routes na nangangailangan ng Sanctum Authentication
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/applications/{id}/interview-call', [\App\Http\Controllers\Api\InterviewCallController::class, 'show'])
+        ->whereNumber('id');
+    Route::post('/applications/{id}/interview-call/end', [\App\Http\Controllers\Api\InterviewCallController::class, 'end'])
+        ->whereNumber('id')->middleware('throttle:20,1');
     Route::post('/applications/{id}/interview-call/token', [\App\Http\Controllers\Api\InterviewCallController::class, 'token'])
         ->whereNumber('id')->middleware('throttle:20,1');
     // Dashboard Data

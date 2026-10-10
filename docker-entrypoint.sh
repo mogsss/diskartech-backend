@@ -21,6 +21,9 @@ php artisan migrate --path=database/migrations/2026_10_10_120000_add_salary_type
 # Run database migrations automatically on deployment
 php artisan migrate --force || true
 
+# Online interview scheduling/closure depends on this field; fail startup if unavailable.
+php artisan migrate --path=database/migrations/2026_10_10_160000_add_interview_ended_at_to_job_applications.php --force --no-interaction
+
 # Cache Laravel configurations, routes, and views for maximum performance
 php artisan config:cache || true
 php artisan route:cache || true
