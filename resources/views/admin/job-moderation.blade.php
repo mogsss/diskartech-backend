@@ -200,6 +200,7 @@
                                 'title' => $job->title,
                                 'description' => $job->description,
                                 'salary' => number_format((float)$job->salary, 2),
+                                'salary_type' => $job->salary_type ?? 'day',
                                 'category' => $job->category ?? 'General',
                                 'time_slot' => $job->time_slot ?? 'Flexible',
                                 'available_days' => $daysList,
@@ -288,6 +289,7 @@
                             <td class="py-4 pr-3 align-middle">
                                 <span class="font-bold text-emerald-700 text-sm">
                                     ₱{{ number_format((float)$job->salary, 2) }}
+                                    <span class="text-xs font-medium">{{ $job->salary_type === 'hour' ? '/ hr' : '/ day' }}</span>
                                 </span>
                             </td>
 
@@ -433,6 +435,7 @@
                             <div class="bg-stone-50 border border-stone-200/60 rounded-xl p-3">
                                 <span class="text-[11px] text-slate-400 block font-semibold uppercase">Offered Rate</span>
                                 <span class="text-base font-black text-emerald-700">₱<span x-text="selectedJob.salary"></span></span>
+                                <span class="text-xs text-slate-500" x-text="selectedJob.salary_type === 'hour' ? '/ hr' : '/ day'"></span>
                             </div>
                             <div class="bg-stone-50 border border-stone-200/60 rounded-xl p-3">
                                 <span class="text-[11px] text-slate-400 block font-semibold uppercase">Time Slot</span>
