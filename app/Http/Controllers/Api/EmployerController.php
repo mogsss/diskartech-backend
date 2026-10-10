@@ -93,7 +93,11 @@ class EmployerController extends Controller
 
     public function getApplicationDetails(Request $request, $applicationId)
     {
-        $application = JobApplication::with(['student', 'job'])
+        $application = JobApplication::with([
+            'student', 'job',
+            'job.employer:id,user_id,location,detailed_address',
+            'job.household:id,user_id,location,detailed_address',
+        ])
             ->where('id', $applicationId)
             ->first();
 
