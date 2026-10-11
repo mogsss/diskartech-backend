@@ -59,6 +59,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
     // Job Moderation Routes
     Route::get('/admin/job-moderation', [JobModerationController::class, 'index'])->name('admin.job-moderation');
+    Route::get('/admin/job-moderation/{id}', [JobModerationController::class, 'show'])->name('admin.job-moderation.show');
     Route::post('/admin/job-moderation/{id}/toggle', [JobModerationController::class, 'toggleStatus'])->name('admin.job-moderation.toggle');
     Route::patch('/admin/job-moderation/{id}/status', [JobModerationController::class, 'updateStatus'])->name('admin.job-moderation.status');
     Route::delete('/admin/job-moderation/{id}', [JobModerationController::class, 'destroy'])->name('admin.job-moderation.destroy');

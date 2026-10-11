@@ -25,7 +25,7 @@ class AccountController extends Controller
         if (is_string($request->input('email'))) $request->merge(['email' => strtolower($request->input('email'))]);
         $changingEmail = $request->input('email') !== $admin->email;
         $data = $request->validateWithBag('profile', [
-            'name' => ['required', 'string', 'max:100', function ($attribute, $value, $fail) {
+            'name' => ['bail', 'required', 'string', 'max:100', function ($attribute, $value, $fail) {
                 if (PlainTextInput::containsMarkup($value)) $fail('Your name must contain plain text only.');
             }],
             'email' => ['required', 'string', 'email:rfc', 'max:255', Rule::unique('admins', 'email')->ignore($admin->id)],

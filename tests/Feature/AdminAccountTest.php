@@ -101,6 +101,19 @@ class AdminAccountTest extends TestCase
         $this->assertAuthenticatedAs($this->admin, 'admin');
     }
 
+    public function test_validation_errors_reopen_only_the_relevant_editor_without_flashing_credentials(): void
+    {
+        $this->from('/admin/account')->patch('/admin/account', ['name' => ['bad' => 'array'], 'email' => 'admin@example.com'])
+            ->assertSessionHasErrors('name', null, 'profile');
+        $response = $this->get('/admin/account')->assertOk()->assertSee('Test Admin');
+        if ($path = getenv('DISKARTECH_ACCOUNT_PROFILE_ERROR_PREVIEW_PATH')) file_put_contents($path, $response->getContent());
+        session()->forget(['errors', '_old_input']);
+        $this->from('/admin/account')->put('/admin/account/password', ['current_password' => 'Wrong-password1!', 'password' => 'short', 'password_confirmation' => 'short'])
+            ->assertSessionHasErrors(null, null, 'password');
+        $response = $this->get('/admin/account')->assertOk()->assertDontSee('Wrong-password1!', false);
+        if ($path = getenv('DISKARTECH_ACCOUNT_PASSWORD_ERROR_PREVIEW_PATH')) file_put_contents($path, $response->getContent());
+    }
+
     public function test_account_requires_admin_authentication(): void
     {
         auth('admin')->logout();

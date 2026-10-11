@@ -59,7 +59,7 @@
                                     <h3 class="text-sm font-bold text-slate-900">{{ $document['title'] }}</h3>
                                     @isset($document['subtitle'])<p class="mt-1 text-xs text-slate-500">{{ $document['subtitle'] }}</p>@endisset
                                 </div>
-                                <a x-show="applicant.{{ $document['url'] }}" :href="applicant.{{ $document['url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-8 items-center rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Open file &nearr;</a>
+                                <a x-show="applicant.{{ $document['url'] }}" :href="applicant.{{ $document['url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-8 items-center rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Open file</a>
                             </div>
                             <div class="p-4">
                                 <template x-if="applicant.{{ $document['url'] }}">
@@ -94,7 +94,7 @@
                 @endforeach
             </div>
 
-            <form x-show="rejecting && !applicant.isVerified" id="verification-reject-form" method="POST" :action="'{{ url('/admin/verification/reject') }}/' + applicant.userId"
+            <form x-show="rejecting && applicant.isComplete && !applicant.isVerified" id="verification-reject-form" method="POST" :action="'{{ url('/admin/verification/reject') }}/' + applicant.userId"
                 @submit="if (!confirm('Reject this verification and send the reason to the account owner?')) $event.preventDefault()"
                 class="rounded-xl border border-rose-200 bg-rose-50/50 p-4">
                 @csrf
@@ -109,10 +109,10 @@
         </div>
 
         <div class="shrink-0 border-t border-stone-100 bg-white px-5 py-4 sm:px-6">
-            <p x-show="!applicant.isComplete && !applicant.isVerified" class="mb-3 text-xs leading-5 text-amber-700">Approval is available once all required documents have been uploaded.</p>
+            <p x-show="!applicant.isComplete && !applicant.isVerified" class="mb-3 text-xs leading-5 text-amber-700">Review actions are available once all required documents have been uploaded.</p>
             <div class="flex flex-wrap items-center justify-end gap-2">
                 <button type="button" @click="close()" class="min-h-[44px] rounded-xl border border-stone-200 px-4 text-sm font-semibold text-slate-700 hover:bg-stone-50">Close</button>
-                <template x-if="!applicant.isVerified">
+                <template x-if="applicant.isComplete && !applicant.isVerified">
                     <div class="flex flex-wrap gap-2">
                         <button x-show="!rejecting" type="button" @click="rejecting = true; $nextTick(() => requestAnimationFrame(() => { $refs.rejectionReason.value = ''; $refs.rejectionReason.setCustomValidity(''); $refs.rejectionReason.focus(); $refs.rejectionReason.scrollIntoView({ block: 'nearest' }); }))" class="min-h-[44px] rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
                         <button x-show="rejecting" type="button" @click="rejecting = false" class="min-h-[44px] rounded-xl border border-stone-200 px-4 text-sm font-semibold text-slate-600">Back</button>

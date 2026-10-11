@@ -23,7 +23,7 @@ class VerificationController extends Controller
             $request->merge(['search' => PlainTextInput::normalize($request->query('search'))]);
         }
         $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:120', function ($attribute, $value, $fail) {
+            'search' => ['bail', 'nullable', 'string', 'max:120', function ($attribute, $value, $fail) {
                 if (PlainTextInput::containsMarkup($value)) $fail('Search must contain plain text only.');
             }],
             'role' => ['nullable', Rule::in(['all', ...array_keys(self::PROFILES)])],
@@ -107,12 +107,15 @@ class VerificationController extends Controller
         if (is_string($request->input('rejection_reason'))) {
             $request->merge(['rejection_reason' => PlainTextInput::normalize($request->input('rejection_reason'))]);
         }
-        $request->validate(['rejection_reason' => ['required', 'string', 'max:255', function ($attribute, $value, $fail) {
+        $request->validate(['rejection_reason' => ['bail', 'required', 'string', 'max:255', function ($attribute, $value, $fail) {
             if (PlainTextInput::containsMarkup($value)) $fail('The rejection reason must contain plain text only.');
         }]]);
-        [$profile] = $this->reviewedProfile($request, $id);
+        [$profile, $documents] = $this->reviewedProfile($request, $id);
         if (!$profile) return back()->with('error', 'Applicant profile not found.');
         if ((bool) $profile->isVerified) return back()->with('error', 'This account is already verified.');
+        foreach ($documents as $field) {
+            if (blank($profile->$field)) return back()->with('error', 'Upload all required documents before reviewing this account.');
+        }
         $profile->isVerified = false;
         $profile->rejection_reason = $request->input('rejection_reason');
         $profile->save();

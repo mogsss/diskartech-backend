@@ -1,555 +1,236 @@
 <x-admin-layout>
-    @push('header-title')
-        Job Moderation
-    @endpush
-
-    <!-- Top Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        @php
-            $statsCards = [
-                [
-                    'label' => 'Total job posts',
-                    'count' => $stats['total'] ?? 0,
-                    'badge' => 'All',
-                    'badgeBg' => 'bg-slate-100',
-                    'badgeColor' => 'text-slate-700',
-                    'icon' => 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
-                ],
-                [
-                    'label' => 'Live on student app',
-                    'count' => $stats['live'] ?? 0,
-                    'badge' => 'Live',
-                    'badgeBg' => 'bg-emerald-50',
-                    'badgeColor' => 'text-emerald-600',
-                    'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                ],
-                [
-                    'label' => 'Hidden / Under review',
-                    'count' => $stats['hidden'] ?? 0,
-                    'badge' => 'Hidden',
-                    'badgeBg' => 'bg-amber-50',
-                    'badgeColor' => 'text-amber-600',
-                    'icon' => 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18'
-                ],
-                [
-                    'label' => 'Student applications',
-                    'count' => $stats['applications'] ?? 0,
-                    'badge' => 'System',
-                    'badgeBg' => 'bg-indigo-50',
-                    'badgeColor' => 'text-indigo-600',
-                    'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
-                ],
-            ];
-        @endphp
-
-        @foreach($statsCards as $card)
-            <div class="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-sm relative">
-                <div class="flex justify-between items-start mb-2">
-                    <span class="text-slate-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $card['icon'] }}"></path>
-                        </svg>
-                    </span>
-                    <span class="{{ $card['badgeColor'] }} font-semibold text-xs {{ $card['badgeBg'] }} px-2 py-0.5 rounded-md">
-                        {{ $card['badge'] }}
-                    </span>
-                </div>
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight">{{ number_format($card['count']) }}</h3>
-                <p class="text-xs text-slate-500 font-medium mt-0.5">{{ $card['label'] }}</p>
-            </div>
-        @endforeach
-    </div>
-
-    <!-- Alert Notifications -->
-    @if(session('success'))
-        <div class="mb-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center space-x-2">
-            <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span>{{ session('success') }}</span>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2">
-            <svg class="w-4 h-4 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-            <span>{{ session('error') }}</span>
-        </div>
-    @endif
-
-    <!-- Main Container with Alpine.js -->
-    <div x-data="{
-        openModal: false,
-        selectedJob: null,
-        showDetails(data) {
-            this.selectedJob = data;
-            this.openModal = true;
+    @push('header-title') Job Moderation @endpush
+    <script>
+        function jobModeration() {
+            return {
+                open: false, loading: false, error: '', job: null, applicants: [], pagination: null,
+                detailUrl: '', lastUrl: '', controller: null, revision: 0, opener: null, previousOverflow: '',
+                async show(url, button) {
+                    this.opener = button; this.detailUrl = url; this.job = null; this.applicants = []; this.pagination = null;
+                    this.previousOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; this.open = true;
+                    this.$nextTick(() => requestAnimationFrame(() => this.$refs.dialogClose.focus()));
+                    await this.load(url);
+                },
+                async load(url) {
+                    if (!url) return;
+                    this.controller?.abort();
+                    const controller = new AbortController(); this.controller = controller;
+                    const revision = ++this.revision; this.loading = true; this.error = ''; this.lastUrl = url;
+                    const timeout = setTimeout(() => controller.abort(), 15000);
+                    try {
+                        const response = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: controller.signal });
+                        if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Your session has expired. Refresh the page and sign in again.' : response.status === 404 ? 'This job is no longer available. Refresh the job list.' : 'Unable to load job details. Please try again.');
+                        const data = await response.json();
+                        if (revision !== this.revision || !this.open) return;
+                        if (!data.job || !Array.isArray(data.applicants) || !data.pagination) throw new Error('Unable to load job details. Please refresh the page.');
+                        this.job = data.job; this.applicants = data.applicants; this.pagination = data.pagination;
+                        this.$nextTick(() => { this.$refs.dialogBody.scrollTop = 0; });
+                    } catch (error) {
+                        if (revision === this.revision && this.open) this.error = error.name === 'AbortError' ? 'The request timed out. Please try again.' : (error instanceof SyntaxError || error instanceof TypeError ? 'Unable to load job details. Check your connection and try again.' : error.message);
+                    } finally {
+                        clearTimeout(timeout);
+                        if (revision === this.revision) this.loading = false;
+                    }
+                },
+                close() {
+                    this.open = false; ++this.revision; this.controller?.abort(); this.loading = false;
+                    document.body.style.overflow = this.previousOverflow;
+                    this.$nextTick(() => requestAnimationFrame(() => this.opener?.focus()));
+                },
+                trap(event) {
+                    const elements = [...this.$refs.dialog.querySelectorAll('button:not([disabled]), a[href], input:not([type=hidden]), select, textarea, [tabindex="0"]')].filter(el => el.getClientRects().length);
+                    const first = elements[0], last = elements.at(-1);
+                    if (!first) return;
+                    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+                },
+                statusLabel(status) { return ({ active: 'Live', hidden: 'Hidden', closed: 'Closed' })[status] || 'Unknown'; },
+                statusClass(status) { return ({ active: 'bg-emerald-50 text-emerald-700', hidden: 'bg-amber-50 text-amber-800', closed: 'bg-slate-100 text-slate-600' })[status] || 'bg-slate-100 text-slate-600'; },
+                destroy() { this.controller?.abort(); if (this.open) document.body.style.overflow = this.previousOverflow; }
+            };
         }
-    }" class="bg-white rounded-2xl border border-stone-200/80 shadow-sm p-6 relative">
-
-        <!-- Top Header & Search/Filter Toolbar -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+    </script>
+    <div class="mx-auto w-full max-w-7xl space-y-6" x-data="jobModeration()" @keydown.escape.window="if (open) close()">
+        <section class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h3 class="font-bold text-slate-900 text-base">Job posts</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Manage live job listings, hide inappropriate content, and view applicant details</p>
+                <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-red-700">Manage listings</p>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Job Moderation</h1>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Review job posts, check hirer details, and manage what students can see.</p>
             </div>
-
-            <!-- Aligned Toolbar Form -->
-            <form method="GET" action="{{ route('admin.job-moderation') }}" class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                <!-- Search Input -->
-                <div class="relative flex-1 sm:flex-initial">
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search title, hirer, email..." 
-                        class="w-full sm:w-56 bg-[#F2EDE4] text-xs rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-700 placeholder-slate-400 border-0">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                    </span>
+            <a href="{{ url()->full() }}" class="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-stone-50">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M20 7v5h-5M4 17v-5h5m-4-1a7 7 0 0 1 12-5l3 3M4 15l3 3a7 7 0 0 0 12-5"/></svg>
+                Refresh
+            </a>
+        </section>
+        @if(session('success'))
+            <div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{ session('success') }}</div>
+        @endif
+        @if(session('error') || $errors->any())
+            <div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{{ session('error') ?: $errors->first() }}</div>
+        @endif
+        <section class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Overall job totals">
+            @foreach([
+                ['all', 'Total job posts', $stats['total'], 'All listings', 'bg-red-50 text-red-700'],
+                ['active', 'Live jobs', $stats['live'], 'Visible to students', 'bg-emerald-50 text-emerald-700'],
+                ['hidden', 'Hidden jobs', $stats['hidden'], 'Removed from browsing', 'bg-amber-50 text-amber-800'],
+                ['closed', 'Closed jobs', $stats['closed'], 'No longer accepting applicants', 'bg-slate-100 text-slate-600'],
+            ] as [$value, $label, $count, $description, $tone])
+                <a href="{{ route('admin.job-moderation', ['status' => $value]) }}" class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm hover:border-red-200 sm:p-5">
+                    <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl {{ $tone }}">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M4 6h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm-1 6h18m-11 0v2h4v-2"/></svg>
+                    </div>
+                    <p class="text-xs font-medium text-slate-500 sm:text-sm">{{ $label }}</p>
+                    <p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">{{ number_format($count) }}</p>
+                    <p class="mt-2 text-xs leading-5 text-slate-400">{{ $description }}</p>
+                </a>
+            @endforeach
+        </section>
+        <section class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+            <form method="GET" action="{{ route('admin.job-moderation') }}" x-ref="jobFilters"
+                x-data="{ timer: null, submitFilters() { clearTimeout(this.timer); this.$refs.jobFilters.requestSubmit(); }, scheduleSearch(event) { clearTimeout(this.timer); if (!event.isComposing) this.timer = setTimeout(() => this.submitFilters(), 600); }, destroy() { clearTimeout(this.timer); } }"
+                @submit="clearTimeout(timer)" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_160px_200px]">
+                <div class="sm:col-span-2 lg:col-span-1">
+                    <label for="job-search" class="mb-2 block text-xs font-semibold text-slate-600">Search job posts</label>
+                    <input id="job-search" type="search" name="search" maxlength="120" value="{{ $search }}" @input="scheduleSearch($event)" @compositionend="scheduleSearch($event)" placeholder="Job title, hirer, email, or description" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-900 focus:outline-red-700">
                 </div>
-
-                <!-- Status Filter -->
-                <select name="status" onchange="this.form.submit()" 
-                    class="bg-[#F2EDE4] text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-700 border-0 font-semibold cursor-pointer">
-                    <option value="">All Status</option>
-                    <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Live</option>
-                    <option value="hidden" {{ request('status') === 'hidden' ? 'selected' : '' }}>Hidden</option>
-                    <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
-                </select>
-
-                <!-- Category Filter -->
-                @if(isset($categories) && count($categories) > 0)
-                    <select name="category" onchange="this.form.submit()" 
-                        class="bg-[#F2EDE4] text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-700 border-0 font-semibold cursor-pointer">
-                        <option value="">All Categories</option>
-                        @foreach($categories as $cat)
-                            <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                <div>
+                    <label for="job-status" class="mb-2 block text-xs font-semibold text-slate-600">Status</label>
+                    <select id="job-status" name="status" @change="submitFilters()" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-700 focus:outline-red-700">
+                        @foreach(['all' => 'All statuses', 'active' => 'Live', 'hidden' => 'Hidden', 'closed' => 'Closed'] as $value => $label)
+                            <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
-                @endif
-
-                <!-- Clear Filters Button -->
-                @if(request('search') || request('status') || request('category'))
-                    <a href="{{ route('admin.job-moderation') }}" 
-                        class="text-xs bg-stone-100 hover:bg-stone-200 text-stone-600 font-semibold px-3 py-2 rounded-xl transition flex items-center space-x-1"
-                        title="Clear filters">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                        <span>Clear</span>
-                    </a>
-                @endif
-
-                <!-- Refresh Button -->
-                <button type="button" onclick="window.location.reload();"
-                    class="text-xs bg-[#F2EDE4] hover:bg-stone-200 font-semibold text-slate-700 px-3 py-2 rounded-xl transition flex items-center space-x-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                        </path>
-                    </svg>
-                    <span>Refresh</span>
-                </button>
+                </div>
+                <div>
+                    <label for="job-category" class="mb-2 block text-xs font-semibold text-slate-600">Category</label>
+                    <select id="job-category" name="category" @change="submitFilters()" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-700 focus:outline-red-700">
+                        <option value="all" @selected($category === 'all')>All categories</option>
+                        @foreach($categories as $item)<option value="{{ $item }}" @selected($category === $item)>{{ $item }}</option>@endforeach
+                    </select>
+                </div>
+                <noscript><button type="submit" class="min-h-[44px] rounded-xl bg-red-700 px-4 text-sm font-semibold text-white">Apply filters</button></noscript>
             </form>
+        </section>
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-500">
+            <p>{{ number_format($jobs->total()) }} matching posts · newest first <span class="hidden sm:inline">· {{ number_format($stats['applications']) }} total applications</span></p>
+            <a href="{{ route('admin.job-moderation') }}" class="font-semibold text-red-700 hover:underline">Reset filters</a>
         </div>
-
-        <!-- Professional Table View matching Verification Dashboard -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="text-slate-400 text-[11px] uppercase tracking-wider border-b border-stone-100">
-                        <th class="pb-3.5 font-semibold">Job Post</th>
-                        <th class="pb-3.5 font-semibold">Hirer / Poster</th>
-                        <th class="pb-3.5 font-semibold">Schedule</th>
-                        <th class="pb-3.5 font-semibold">Rate</th>
-                        <th class="pb-3.5 font-semibold">Status</th>
-                        <th class="pb-3.5 font-semibold text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="text-slate-700 text-xs divide-y divide-stone-100">
-                    @forelse($jobs as $job)
-                        @php
-                            $isEmployer = !empty($job->employer);
-                            $isHousehold = !empty($job->household);
-
-                            $posterName = match(true) {
-                                $isEmployer => $job->employer->employer_name ?? $job->employer->hirer_name ?? $job->user?->name ?? 'Employer',
-                                $isHousehold => $job->household->household_name ?? $job->user?->name ?? 'Household',
-                                default => $job->user?->name ?? $job->user?->email ?? 'Hirer'
-                            };
-
-                            $posterType = match(true) {
-                                $isEmployer => 'Business',
-                                $isHousehold => 'Household',
-                                default => 'Individual'
-                            };
-
-                            $posterEmail = $job->user?->email ?? 'N/A';
-                            $posterPhone = $job->employer?->contact_number ?? $job->household?->contact_number ?? 'N/A';
-                            $posterLocation = $job->employer?->location ?? $job->household?->location ?? 'N/A';
-
-                            $applicationsCount = $job->applications ? $job->applications->count() : 0;
-
-                            $reqsList = is_array($job->requirements) ? $job->requirements : (json_decode($job->requirements, true) ?? []);
-                            $skillsList = is_array($job->skills) ? $job->skills : (json_decode($job->skills, true) ?? []);
-                            $daysList = is_array($job->available_days) ? $job->available_days : (json_decode($job->available_days, true) ?? []);
-
-                            $jobPayload = [
-                                'id' => $job->id,
-                                'title' => $job->title,
-                                'description' => $job->description,
-                                'salary' => number_format((float)$job->salary, 2),
-                                'salary_type' => $job->salary_type ?? 'day',
-                                'category' => $job->category ?? 'General',
-                                'time_slot' => $job->time_slot ?? 'Flexible',
-                                'available_days' => $daysList,
-                                'status' => $job->status,
-                                'created_at' => $job->created_at ? $job->created_at->format('M d, Y h:i A') : 'N/A',
-                                'requirements' => $reqsList,
-                                'skills' => $skillsList,
-                                'poster' => [
-                                    'name' => $posterName,
-                                    'type' => $posterType,
-                                    'email' => $posterEmail,
-                                    'phone' => $posterPhone,
-                                    'location' => $posterLocation,
-                                ],
-                                'applications_count' => $applicationsCount,
-                                'applications' => $job->applications->map(function($app) {
-                                    return [
-                                        'id' => $app->id,
-                                        'student_name' => $app->student?->student_name ?? 'Student',
-                                        'school' => $app->student?->student_school_name ?? 'N/A',
-                                        'course' => $app->student?->course ?? 'N/A',
-                                        'status' => $app->status ?? 'pending',
-                                        'date' => $app->created_at ? $app->created_at->format('M d, Y') : 'N/A',
-                                    ];
-                                })->values(),
-                                'toggle_url' => route('admin.job-moderation.toggle', $job->id),
-                                'delete_url' => route('admin.job-moderation.destroy', $job->id),
-                            ];
-                        @endphp
-
-                        <tr class="hover:bg-stone-50/50 transition">
-                            <!-- Job Title & Meta -->
-                            <td class="py-4 pr-3 align-middle">
-                                <div class="space-y-1">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <button type="button" @click="showDetails(@js($jobPayload))" 
-                                            class="font-bold text-slate-900 text-sm hover:text-red-700 transition text-left">
-                                            {{ $job->title }}
-                                        </button>
-                                        <span class="bg-stone-100 text-stone-600 font-medium px-2 py-0.5 rounded text-[10px]">
-                                            {{ $job->category ?? 'General' }}
-                                        </span>
-                                    </div>
-                                    <p class="text-slate-400 text-[11px] flex items-center gap-1.5">
-                                        <span>Posted {{ $job->created_at ? $job->created_at->diffForHumans() : 'recently' }}</span>
-                                        <span>·</span>
-                                        <span class="text-indigo-600 font-medium">{{ $applicationsCount }} {{ Str::plural('applicant', $applicationsCount) }}</span>
-                                    </p>
-                                </div>
-                            </td>
-
-                            <!-- Hirer / Poster -->
-                            <td class="py-4 pr-3 align-middle">
-                                <div>
-                                    <p class="font-bold text-slate-900">{{ $posterName }}</p>
-                                    <div class="flex items-center gap-1.5 mt-0.5">
-                                        @if($isEmployer)
-                                            <span class="bg-blue-50 text-blue-700 font-semibold px-1.5 py-0.2 rounded text-[10px] border border-blue-100">
-                                                Business
-                                            </span>
-                                        @elseif($isHousehold)
-                                            <span class="bg-purple-50 text-purple-700 font-semibold px-1.5 py-0.2 rounded text-[10px] border border-purple-100">
-                                                Household
-                                            </span>
-                                        @endif
-                                        <span class="text-slate-400 text-[11px] truncate max-w-[150px]">{{ $posterEmail }}</span>
-                                    </div>
-                                </div>
-                            </td>
-
-                            <!-- Schedule & Days -->
-                            <td class="py-4 pr-3 align-middle">
-                                <div class="text-slate-600">
-                                    <p class="font-medium text-slate-800">{{ $job->time_slot ?? 'Whole Day' }}</p>
-                                    <p class="text-[11px] text-slate-400 mt-0.5">
-                                        @if(!empty($daysList))
-                                            {{ implode(', ', $daysList) }}
-                                        @else
-                                            Flexible days
-                                        @endif
-                                    </p>
-                                </div>
-                            </td>
-
-                            <!-- Rate -->
-                            <td class="py-4 pr-3 align-middle">
-                                <span class="font-bold text-emerald-700 text-sm">
-                                    ₱{{ number_format((float)$job->salary, 2) }}
-                                    <span class="text-xs font-medium">{{ $job->salary_type === 'hour' ? '/ hr' : '/ day' }}</span>
-                                </span>
-                            </td>
-
-                            <!-- Status Badge -->
-                            <td class="py-4 pr-3 align-middle">
-                                @if($job->status === 'active')
-                                    <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 font-semibold text-[11px] px-2.5 py-1 rounded-lg">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                        Live
-                                    </span>
-                                @elseif($job->status === 'hidden')
-                                    <span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-600 font-semibold text-[11px] px-2.5 py-1 rounded-lg">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                        Hidden
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1.5 bg-stone-100 text-stone-500 font-semibold text-[11px] px-2.5 py-1 rounded-lg">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
-                                        {{ ucfirst($job->status) }}
-                                    </span>
-                                @endif
-                            </td>
-
-                            <!-- Actions -->
-                            <td class="py-4 text-right align-middle whitespace-nowrap">
-                                <div class="inline-flex items-center space-x-1.5">
-                                    <!-- Toggle Hide / Publish -->
-                                    <form action="{{ route('admin.job-moderation.toggle', $job->id) }}" method="POST" class="inline">
-                                        @csrf
-                                        @if($job->status === 'active')
-                                            <button type="submit" 
-                                                class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition text-[11px]"
-                                                title="Hide this job from students">
-                                                Hide post
-                                            </button>
-                                        @else
-                                            <button type="submit" 
-                                                class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-xl transition shadow-sm text-[11px]"
-                                                title="Make this job live">
-                                                Publish
-                                            </button>
-                                        @endif
-                                    </form>
-
-                                    <!-- Details Button -->
-                                    <button type="button" @click="showDetails(@js($jobPayload))"
-                                        class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl transition text-[11px]"
-                                        title="View job details">
-                                        Details
-                                    </button>
-
-                                    <!-- Delete Button -->
-                                    <form action="{{ route('admin.job-moderation.destroy', $job->id) }}" method="POST" class="inline"
-                                        onsubmit="return confirm('Are you sure you want to permanently delete this job post? All associated student applications will also be removed.')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" 
-                                            class="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                                            title="Delete permanently">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                            </svg>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="py-12 text-center text-slate-400">
-                                No job posts found at this time.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination Links -->
-        <div class="mt-6 pt-4 border-t border-stone-100">
-            {{ $jobs->links() }}
-        </div>
-
-        <!-- ================= JOB DETAILS MODAL ================= -->
-        <div x-show="openModal" style="display: none;" 
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            x-transition:enter="transition ease-out duration-150"
-            x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100"
-            x-transition:leave="transition ease-in duration-100"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0">
-
-            <div @click.away="openModal = false" 
-                class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative text-left max-h-[90vh] overflow-y-auto">
-                
-                <template x-if="selectedJob">
-                    <div>
-                        <!-- Modal Top Header -->
-                        <div class="flex justify-between items-start mb-4 border-b border-stone-100 pb-3">
-                            <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600" x-text="selectedJob.category"></span>
-                                    <template x-if="selectedJob.status === 'active'">
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600">Live</span>
-                                    </template>
-                                    <template x-if="selectedJob.status === 'hidden'">
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-600">Hidden</span>
-                                    </template>
-                                </div>
-                                <h3 class="font-bold text-slate-900 text-lg" x-text="selectedJob.title"></h3>
-                                <p class="text-xs text-slate-400 mt-0.5">Posted on <span x-text="selectedJob.created_at"></span></p>
-                            </div>
-                            <button @click="openModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
-                        </div>
-
-                        <!-- Poster Card -->
-                        <div class="bg-stone-50 border border-stone-200/80 rounded-xl p-4 mb-4">
-                            <span class="font-semibold text-slate-400 block text-xs uppercase tracking-wider mb-2">Hirer / Poster Information</span>
-                            <div class="grid grid-cols-2 gap-3 text-xs">
-                                <div>
-                                    <span class="text-slate-400 block text-[11px]">Name:</span>
-                                    <p class="font-bold text-slate-800 text-sm" x-text="selectedJob.poster.name"></p>
-                                    <span class="text-slate-400 text-[11px]" x-text="selectedJob.poster.type"></span>
-                                </div>
-                                <div>
-                                    <span class="text-slate-400 block text-[11px]">Email:</span>
-                                    <p class="font-medium text-slate-800 select-all" x-text="selectedJob.poster.email"></p>
-                                </div>
-                                <div>
-                                    <span class="text-slate-400 block text-[11px]">Contact:</span>
-                                    <p class="font-medium text-slate-800" x-text="selectedJob.poster.phone"></p>
-                                </div>
-                                <div>
-                                    <span class="text-slate-400 block text-[11px]">Location:</span>
-                                    <p class="font-medium text-slate-800" x-text="selectedJob.poster.location"></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Key Specs -->
-                        <div class="grid grid-cols-3 gap-3 mb-4 text-center">
-                            <div class="bg-stone-50 border border-stone-200/60 rounded-xl p-3">
-                                <span class="text-[11px] text-slate-400 block font-semibold uppercase">Offered Rate</span>
-                                <span class="text-base font-black text-emerald-700">₱<span x-text="selectedJob.salary"></span></span>
-                                <span class="text-xs text-slate-500" x-text="selectedJob.salary_type === 'hour' ? '/ hr' : '/ day'"></span>
-                            </div>
-                            <div class="bg-stone-50 border border-stone-200/60 rounded-xl p-3">
-                                <span class="text-[11px] text-slate-400 block font-semibold uppercase">Time Slot</span>
-                                <span class="text-xs font-bold text-slate-800" x-text="selectedJob.time_slot"></span>
-                            </div>
-                            <div class="bg-stone-50 border border-stone-200/60 rounded-xl p-3">
-                                <span class="text-[11px] text-slate-400 block font-semibold uppercase">Applicants</span>
-                                <span class="text-base font-black text-indigo-700" x-text="selectedJob.applications_count"></span>
-                            </div>
-                        </div>
-
-                        <!-- Work Days -->
-                        <div class="mb-4">
-                            <span class="font-semibold text-slate-400 block text-xs uppercase mb-2">Available Work Days</span>
-                            <div class="flex flex-wrap gap-1.5">
-                                <template x-for="day in selectedJob.available_days" :key="day">
-                                    <span class="bg-[#F2EDE4] text-slate-700 font-semibold px-2.5 py-1 rounded-lg text-xs" x-text="day"></span>
-                                </template>
-                                <template x-if="!selectedJob.available_days || selectedJob.available_days.length === 0">
-                                    <span class="text-xs text-slate-400 italic">Flexible schedule</span>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Description -->
-                        <div class="mb-4">
-                            <span class="font-semibold text-slate-400 block text-xs uppercase mb-2">Job Description</span>
-                            <div class="bg-stone-50 border border-stone-200/60 rounded-xl p-4 text-xs text-slate-700 leading-relaxed whitespace-pre-line" x-text="selectedJob.description"></div>
-                        </div>
-
-                        <!-- Requirements & Skills -->
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <span class="font-semibold text-slate-400 block text-xs uppercase mb-2">Required Documents</span>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <template x-for="req in selectedJob.requirements" :key="req">
-                                        <span class="bg-blue-50 text-blue-700 border border-blue-100 font-semibold px-2 py-0.5 rounded text-xs" x-text="req"></span>
-                                    </template>
-                                    <template x-if="!selectedJob.requirements || selectedJob.requirements.length === 0">
-                                        <span class="text-xs text-slate-400 italic">None specified</span>
-                                    </template>
-                                </div>
-                            </div>
-                            <div>
-                                <span class="font-semibold text-slate-400 block text-xs uppercase mb-2">Preferred Skills</span>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <template x-for="skill in selectedJob.skills" :key="skill">
-                                        <span class="bg-amber-50 text-amber-800 border border-amber-100 font-semibold px-2 py-0.5 rounded text-xs" x-text="skill"></span>
-                                    </template>
-                                    <template x-if="!selectedJob.skills || selectedJob.skills.length === 0">
-                                        <span class="text-xs text-slate-400 italic">None specified</span>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Applicants Section -->
-                        <div class="border-t border-stone-100 pt-4 mb-4">
-                            <span class="font-semibold text-slate-400 block text-xs uppercase mb-2">
-                                Student Applicants (<span x-text="selectedJob.applications_count"></span>)
-                            </span>
-
-                            <div class="space-y-2 max-h-40 overflow-y-auto">
-                                <template x-for="app in selectedJob.applications" :key="app.id">
-                                    <div class="flex items-center justify-between bg-stone-50 border border-stone-200/60 p-2.5 rounded-xl text-xs">
-                                        <div>
-                                            <p class="font-bold text-slate-900" x-text="app.student_name"></p>
-                                            <p class="text-slate-400 text-[11px]" x-text="app.school + ' · ' + app.course"></p>
-                                        </div>
-                                        <div class="text-right">
-                                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded"
-                                                :class="{
-                                                    'bg-emerald-50 text-emerald-600': app.status === 'accepted' || app.status === 'hired',
-                                                    'bg-amber-50 text-amber-600': app.status === 'pending',
-                                                    'bg-blue-50 text-blue-600': app.status === 'interview',
-                                                    'bg-rose-50 text-rose-600': app.status === 'rejected'
-                                                }"
-                                                x-text="app.status.toUpperCase()">
-                                            </span>
-                                            <span class="text-[10px] text-slate-400 block mt-0.5" x-text="app.date"></span>
-                                        </div>
-                                    </div>
-                                </template>
-
-                                <template x-if="!selectedJob.applications || selectedJob.applications.length === 0">
-                                    <p class="text-xs text-slate-400 italic py-1">No students have applied for this job post yet.</p>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Footer -->
-                        <div class="border-t border-stone-100 pt-4 flex items-center justify-between">
-                            <form :action="selectedJob.toggle_url" method="POST">
-                                @csrf
-                                <template x-if="selectedJob.status === 'active'">
-                                    <button type="submit" class="bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold px-4 py-2 rounded-xl text-xs transition">
-                                        Hide this post
-                                    </button>
-                                </template>
-                                <template x-if="selectedJob.status !== 'active'">
-                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition shadow-sm">
-                                        Publish to mobile app
-                                    </button>
-                                </template>
-                            </form>
-
-                            <button @click="openModal = false" class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold px-4 py-2 rounded-xl text-xs transition">
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </template>
+        <section class="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm" aria-label="Job listings">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[880px] text-left">
+                    <thead class="border-b border-stone-200 bg-stone-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr><th scope="col" class="px-5 py-4">Job post</th><th scope="col" class="px-4 py-4">Hirer</th><th scope="col" class="px-4 py-4">Rate</th><th scope="col" class="px-4 py-4 text-center">Applicants</th><th scope="col" class="px-4 py-4">Status</th><th scope="col" class="px-5 py-4 text-right">Action</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-stone-100">
+                        @forelse($jobs as $job)
+                            @php
+                                $poster = $job->moderation_poster;
+                                $tone = match ($job->status) { 'active' => 'bg-emerald-50 text-emerald-700', 'hidden' => 'bg-amber-50 text-amber-800', default => 'bg-slate-100 text-slate-600' };
+                            @endphp
+                            <tr data-job-id="{{ $job->id }}" class="hover:bg-stone-50/60">
+                                <td class="max-w-[300px] px-5 py-5">
+                                    <p class="break-words text-sm font-semibold leading-6 text-slate-900">{{ $job->title }}</p>
+                                    <p class="mt-1 break-words text-xs text-slate-500">{{ $job->category ?: 'Uncategorized' }} <span class="text-stone-300">·</span> #{{ $job->id }}</p>
+                                    <p class="mt-2 text-xs text-slate-400">{{ $job->created_at?->timezone('Asia/Manila')->format('M j, Y · g:i A') }} PHT</p>
+                                </td>
+                                <td class="max-w-[240px] px-4 py-5">
+                                    <p class="break-words text-sm font-medium text-slate-800">{{ $poster['name'] }}</p>
+                                    <p class="mt-1 text-xs text-slate-500">{{ $poster['role'] }} @if($poster['verified'])<span class="ml-1 text-emerald-700">· Verified</span>@endif</p>
+                                    <p class="mt-1 break-all text-xs text-slate-400">{{ $poster['email'] }}</p>
+                                </td>
+                                <td class="whitespace-nowrap px-4 py-5 text-sm font-semibold text-slate-800">₱{{ number_format((float) $job->salary, 2) }} <span class="text-xs font-normal text-slate-500">/ {{ $job->salary_type === 'hour' ? 'hr' : 'day' }}</span></td>
+                                <td class="px-4 py-5 text-center text-sm font-semibold tabular-nums text-slate-700">{{ $job->applications_count }}</td>
+                                <td class="px-4 py-5"><span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold {{ $tone }}">{{ $job->status === 'active' ? 'Live' : ucfirst($job->status) }}</span></td>
+                                <td class="px-5 py-5 text-right"><button type="button" @click="show(@js(route('admin.job-moderation.show', $job->id, false)), $el)" class="min-h-[40px] whitespace-nowrap rounded-xl border border-red-100 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100 focus:outline-red-700">View details</button></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="px-6 py-16 text-center"><p class="text-base font-semibold text-slate-900">{{ $stats['total'] ? 'No matching job posts' : 'No job posts yet' }}</p><p class="mt-2 text-sm text-slate-500">{{ $stats['total'] ? 'Try a different search, status, or category.' : 'Job posts will appear here when employers or households publish them.' }}</p></td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
-        </div>
+            @if($jobs->hasPages())
+                <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 px-5 py-4 text-xs text-slate-500" aria-label="Job list pagination">
+                    <p>Showing {{ $jobs->firstItem() ?? 0 }}–{{ $jobs->lastItem() ?? 0 }} of {{ $jobs->total() }}</p>
+                    <div class="flex items-center gap-3">
+                        @if($jobs->onFirstPage())<span class="text-slate-300">Previous</span>@else<a href="{{ $jobs->previousPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold hover:bg-stone-50">Previous</a>@endif
+                        <span>Page {{ $jobs->currentPage() }} of {{ $jobs->lastPage() }}</span>
+                        @if($jobs->hasMorePages())<a href="{{ $jobs->nextPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold hover:bg-stone-50">Next</a>@else<span class="text-slate-300">Next</span>@endif
+                    </div>
+                </nav>
+            @endif
+        </section>
 
+        <div x-show="open" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6" @click.self="close()">
+            <section x-ref="dialog" role="dialog" aria-modal="true" aria-labelledby="job-review-title" @keydown.tab="trap($event)" :aria-busy="loading" class="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <header class="flex shrink-0 items-start justify-between gap-4 border-b border-stone-200 p-5 sm:p-6">
+                    <div class="min-w-0">
+                        <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-red-700">Review listing</p>
+                        <h2 id="job-review-title" class="text-xl font-bold text-slate-900">Job details</h2>
+                        <p class="mt-1 text-xs text-slate-500">Review this post before changing its visibility.</p>
+                    </div>
+                    <button x-ref="dialogClose" type="button" @click="close()" aria-label="Close job details" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-slate-700 hover:bg-stone-100">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2" stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg>
+                    </button>
+                </header>
+                <div x-ref="dialogBody" class="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6">
+                    <p x-show="loading" role="status" class="mb-4 rounded-xl bg-stone-50 p-4 text-sm text-slate-500">Loading job details…</p>
+                    <div x-show="error" role="alert" class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                        <p x-text="error"></p><button type="button" @click="load(lastUrl)" :disabled="loading" class="mt-3 font-semibold underline disabled:opacity-50">Try again</button>
+                    </div>
+                    <template x-if="job">
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex flex-wrap items-start justify-between gap-3"><h3 class="min-w-0 break-words text-lg font-bold text-slate-900" x-text="job.title"></h3><span class="shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold" :class="statusClass(job.status)" x-text="statusLabel(job.status)"></span></div>
+                                <p class="mt-2 text-xs text-slate-500"><span x-text="job.category"></span> · #<span x-text="job.id"></span> · <span x-text="job.posted_at"></span></p>
+                                <div class="mt-4 grid gap-4 rounded-xl bg-stone-50 p-4 sm:grid-cols-2"><div><p class="text-xs font-semibold text-slate-500">Posted rate</p><p class="mt-2 text-lg font-bold text-slate-900" x-text="job.rate"></p></div><div><p class="text-xs font-semibold text-slate-500">Work schedule</p><p class="mt-2 break-words text-sm font-medium text-slate-800" x-text="job.available_days.join(', ') || 'Days not specified'"></p><p class="mt-1 break-words text-xs text-slate-500" x-text="job.time_slot"></p></div></div>
+                            </div>
+                            <div><h4 class="text-sm font-semibold text-slate-900">Job description</h4><p class="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-600" x-text="job.description || 'No description provided.'"></p></div>
+                            <div class="grid gap-5 sm:grid-cols-2">
+                                <div><h4 class="text-sm font-semibold text-slate-900">Requirements</h4><div class="mt-3 flex flex-wrap gap-2"><template x-for="(item, index) in job.requirements" :key="index"><span class="max-w-full break-words rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs text-slate-600" x-text="item"></span></template><p x-show="!job.requirements.length" class="text-sm text-slate-400">None specified</p></div></div>
+                                <div><h4 class="text-sm font-semibold text-slate-900">Preferred skills</h4><div class="mt-3 flex flex-wrap gap-2"><template x-for="(item, index) in job.skills" :key="index"><span class="max-w-full break-words rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs text-slate-600" x-text="item"></span></template><p x-show="!job.skills.length" class="text-sm text-slate-400">None specified</p></div></div>
+                            </div>
+                            <section class="rounded-xl border border-stone-200 p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-2"><h4 class="text-sm font-semibold text-slate-900">Hirer information</h4><span x-show="job.poster.verified" class="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Verified account</span></div>
+                                <p class="mt-3 break-words text-sm font-semibold text-slate-800" x-text="job.poster.name"></p><p class="mt-1 text-xs text-slate-500" x-text="job.poster.role"></p>
+                                <dl class="mt-4 grid gap-4 sm:grid-cols-2"><div><dt class="text-xs text-slate-500">Email</dt><dd class="mt-1 break-all text-sm text-slate-700" x-text="job.poster.email"></dd></div><div><dt class="text-xs text-slate-500">Contact number</dt><dd class="mt-1 text-sm text-slate-700" x-text="job.poster.phone"></dd></div><div class="sm:col-span-2"><dt class="text-xs text-slate-500">Workplace address</dt><dd class="mt-1 break-words text-sm leading-6 text-slate-700" x-text="job.poster.location"></dd></div></dl>
+                            </section>
+                            <section>
+                                <div class="flex items-center justify-between gap-3"><h4 class="text-sm font-semibold text-slate-900">Student applicants</h4><span class="rounded-lg bg-stone-100 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600" x-text="pagination.total"></span></div>
+                                <div class="mt-3 divide-y divide-stone-100 rounded-xl border border-stone-200">
+                                    <template x-for="applicant in applicants" :key="applicant.id">
+                                        <div class="flex flex-wrap items-start justify-between gap-3 p-4"><div class="min-w-0 flex-1"><p class="break-words text-sm font-semibold text-slate-800" x-text="applicant.name"></p><p class="mt-1 break-words text-xs leading-5 text-slate-500" x-text="applicant.school + ' · ' + applicant.course"></p><p class="mt-2 text-xs text-slate-400" x-text="applicant.date"></p></div><span class="rounded-lg bg-stone-100 px-2 py-1 text-xs font-semibold text-slate-600" x-text="applicant.status"></span></div>
+                                    </template>
+                                    <p x-show="!applicants.length" class="p-4 text-sm text-slate-400">No students have applied yet.</p>
+                                </div>
+                                <nav x-show="pagination.last > 1" class="mt-3 flex items-center justify-between gap-2 text-xs text-slate-500" aria-label="Applicant pagination">
+                                    <button type="button" @click="load(pagination.previous)" :disabled="loading || !pagination.previous" class="min-h-[40px] rounded-lg border border-stone-200 px-3 font-semibold disabled:opacity-40">Previous</button><span>Page <span x-text="pagination.current"></span> of <span x-text="pagination.last"></span></span><button type="button" @click="load(pagination.next)" :disabled="loading || !pagination.next" class="min-h-[40px] rounded-lg border border-stone-200 px-3 font-semibold disabled:opacity-40">Next</button>
+                                </nav>
+                            </section>
+                        </div>
+                    </template>
+                </div>
+                <footer class="shrink-0 border-t border-stone-200 bg-stone-50 p-4 sm:px-6">
+                    <template x-if="job">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <form :action="job.delete_url" method="POST" @submit="if (loading || error || !confirm('Permanently delete this job and all its applications? This cannot be undone.')) $event.preventDefault()">
+                                @csrf @method('DELETE')
+                                <button type="submit" :disabled="loading || !!error" class="min-h-[44px] rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40">Delete post</button>
+                            </form>
+                            <div class="flex flex-wrap gap-2">
+                                <form x-show="job.status !== 'closed'" :action="job.status_url" method="POST" @submit="if (loading || error || !confirm('Close this job? Students will no longer be able to apply.')) $event.preventDefault()">
+                                    @csrf @method('PATCH') <input type="hidden" name="status" value="closed">
+                                    <button type="submit" :disabled="loading || !!error" class="min-h-[44px] rounded-xl border border-stone-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-stone-100 disabled:opacity-40">Close job</button>
+                                </form>
+                                <form :action="job.status_url" method="POST" @submit="if (loading || error || !confirm(job.status === 'active' ? 'Hide this post from students?' : job.status === 'closed' ? 'Reopen this job and allow students to apply again?' : 'Publish this post to students?')) $event.preventDefault()">
+                                    @csrf @method('PATCH') <input type="hidden" name="status" :value="job.status === 'active' ? 'hidden' : 'active'">
+                                    <button type="submit" :disabled="loading || !!error" class="min-h-[44px] rounded-xl bg-red-700 px-4 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-40" x-text="job.status === 'active' ? 'Hide post' : job.status === 'closed' ? 'Reopen job' : 'Publish post'"></button>
+                                </form>
+                            </div>
+                        </div>
+                    </template>
+                </footer>
+            </section>
+        </div>
     </div>
 </x-admin-layout>

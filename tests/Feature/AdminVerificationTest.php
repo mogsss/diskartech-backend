@@ -138,6 +138,16 @@ class AdminVerificationTest extends TestCase
         }
     }
 
+    public function test_incomplete_accounts_cannot_be_rejected_for_any_role(): void
+    {
+        foreach (['student' => 'coe', 'employer' => 'employer_certificate_path', 'household' => 'valid_id_path'] as $role => $field) {
+            $id = $this->account($role, [$field => null]);
+            $this->from('/admin/verification')->post('/admin/verification/reject/'.$id, ['role' => $role, 'rejection_reason' => 'Invalid document'])
+                ->assertRedirect('/admin/verification')->assertSessionHas('error');
+            $this->assertNull(DB::table($role.'s')->where('user_id', $id)->value('rejection_reason'));
+        }
+    }
+
     public function test_complete_accounts_can_be_approved_and_old_rejection_is_cleared(): void
     {
         foreach (['student', 'employer', 'household'] as $role) {
