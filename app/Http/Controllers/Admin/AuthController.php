@@ -29,17 +29,18 @@ class AuthController extends Controller
         ]);
 
         $token = Str::random(64);
+        $previousToken = $sessions->browserToken($request);
         $blocked = false;
         // The callback runs only after the credentials have been verified.
-        if (Auth::guard('admin')->attemptWhen($credentials, function ($admin) use ($sessions, $token, &$blocked) {
-            $blocked = ! $sessions->claim($admin, $token);
+        if (Auth::guard('admin')->attemptWhen($credentials, function ($admin) use ($sessions, $token, $previousToken, &$blocked) {
+            $blocked = ! $sessions->claim($admin, $token, $previousToken);
             return ! $blocked;
         })) {
             $request->session()->regenerate();
             // This token survives session ID changes, including password updates.
             $request->session()->put(AdminSession::SESSION_KEY, $token);
 
-            return redirect()->intended('/admin/dashboard');
+            return $sessions->rememberBrowser(redirect()->intended('/admin/dashboard'), $token);
         }
 
         return back()->withErrors([
@@ -52,14 +53,14 @@ class AuthController extends Controller
     // Proseso ng pag-logout
     public function logout(Request $request, AdminSession $sessions)
     {
-        $token = $request->session()->get(AdminSession::SESSION_KEY);
+        $token = $sessions->browserToken($request);
         if (is_string($token)) $sessions->release($request->user('admin'), $token);
         Auth::guard('admin')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/admin/login');
+        return $sessions->forgetBrowser(redirect('/admin/login'));
     }
     
 }

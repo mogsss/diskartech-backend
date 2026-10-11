@@ -53,6 +53,7 @@ Route::middleware(['auth:admin', \App\Http\Middleware\EnsureSingleAdminSession::
     Route::get('/admin/verification', [VerificationController::class, 'verificationIndex'])->name('admin.verification');
     Route::post('/admin/verification/reject/{id}', [VerificationController::class, 'rejectVerification'])->name('admin.verification.reject');
     Route::post('/admin/verification/approve/{id}', [VerificationController::class, 'approveVerification'])->name('admin.verification.approve');
+    Route::post('/admin/verification/retry-analysis/{id}', [VerificationController::class, 'retryAnalysis'])->middleware('throttle:10,1')->name('admin.verification.retry-analysis');
 
     // Users Route (Nakalipat na sa UserController)
     Route::get('/admin/users', [UserController::class, 'usersIndex'])->name('admin.users');

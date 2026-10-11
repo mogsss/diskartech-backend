@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Admin;
+use App\Jobs\AnalyzeVerificationDocument;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class AdminVerificationTest extends TestCase
@@ -227,5 +229,50 @@ class AdminVerificationTest extends TestCase
         $this->get('/admin/verification')->assertRedirect(route('login'));
         $this->post('/admin/verification/approve/1', ['role' => 'student'])->assertRedirect(route('login'));
         $this->post('/admin/verification/reject/1', ['role' => 'student', 'rejection_reason' => 'Invalid document'])->assertRedirect(route('login'));
+        $this->post('/admin/verification/retry-analysis/1', ['role' => 'student', 'document' => 'coe'])->assertRedirect(route('login'));
+    }
+
+    public function test_admin_can_retry_pending_documents_for_every_role_without_duplicate_jobs(): void
+    {
+        Queue::fake();
+        config(['queue.default' => 'database', 'services.gemini.key' => 'test-ai-key']);
+        foreach (['student' => ['school_id', 'coe'], 'employer' => ['valid_id', 'certificate'], 'household' => ['valid_id']] as $role => $types) {
+            $id = $this->account($role, ['isVerified' => true]);
+            foreach ($types as $type) {
+                $this->post('/admin/verification/retry-analysis/'.$id, ['role' => $role, 'document' => $type])
+                    ->assertRedirect()->assertSessionHas('success');
+            }
+            $this->post('/admin/verification/retry-analysis/'.$id, ['role' => $role, 'document' => $types[0]])->assertSessionHas('success');
+            $this->assertTrue((bool) DB::table($role.'s')->where('user_id', $id)->value('isVerified'));
+        }
+        Queue::assertPushed(AnalyzeVerificationDocument::class, 5);
+    }
+
+    public function test_analysis_retry_rejects_wrong_roles_document_types_and_completed_results(): void
+    {
+        Queue::fake();
+        config(['queue.default' => 'database', 'services.gemini.key' => 'test-ai-key']);
+        $id = $this->account('household', ['ai_is_valid' => false, 'ai_remarks' => 'Existing result']);
+        foreach ([['role' => 'employer', 'document' => 'valid_id'], ['role' => 'household', 'document' => 'certificate'], ['role' => 'household', 'document' => '<script>valid_id</script>']] as $data) {
+            $this->postJson('/admin/verification/retry-analysis/'.$id, $data)->assertUnprocessable();
+        }
+        $this->post('/admin/verification/retry-analysis/'.$id, ['role' => 'household', 'document' => 'valid_id'])
+            ->assertSessionHas('success', 'This document already has an AI result.');
+        $this->assertEquals(false, DB::table('households')->where('user_id', $id)->value('ai_is_valid'));
+        $this->assertSame('Existing result', DB::table('households')->where('user_id', $id)->value('ai_remarks'));
+        $id = $this->account('student', ['coe' => null]);
+        $this->post('/admin/verification/retry-analysis/'.$id, ['role' => 'student', 'document' => 'coe'])->assertSessionHas('error');
+        Queue::assertNothingPushed();
+    }
+
+    public function test_analysis_retry_requires_ai_configuration_and_a_background_queue(): void
+    {
+        Queue::fake();
+        $id = $this->account('employer');
+        config(['services.gemini.key' => null, 'queue.default' => 'database']);
+        $this->post('/admin/verification/retry-analysis/'.$id, ['role' => 'employer', 'document' => 'valid_id'])->assertSessionHas('error');
+        config(['services.gemini.key' => 'test-ai-key', 'queue.default' => 'sync']);
+        $this->post('/admin/verification/retry-analysis/'.$id, ['role' => 'employer', 'document' => 'valid_id'])->assertSessionHas('error');
+        Queue::assertNothingPushed();
     }
 }

@@ -1,10 +1,10 @@
 @php
     $reviewDocuments = [
-        ['role' => "applicant.roleLower === 'student'", 'title' => 'School ID', 'url' => 'schoolIdUrl', 'valid' => 'schoolIdAiIsValid', 'remarks' => 'schoolIdAiRemarks', 'good' => 'Valid School ID', 'bad' => 'Warning / Invalid ID'],
-        ['role' => "applicant.roleLower === 'student'", 'title' => 'COR/COE', 'subtitle' => 'Certificate of Enrolment / Registration', 'url' => 'coeUrl', 'valid' => 'coeAiIsValid', 'remarks' => 'coeAiRemarks', 'good' => 'Valid COR/COE', 'bad' => 'Warning / Invalid COE'],
+        ['role' => "applicant.roleLower === 'student'", 'title' => 'School ID', 'type' => 'school_id', 'url' => 'schoolIdUrl', 'valid' => 'schoolIdAiIsValid', 'remarks' => 'schoolIdAiRemarks', 'good' => 'Valid School ID', 'bad' => 'Warning / Invalid ID'],
+        ['role' => "applicant.roleLower === 'student'", 'title' => 'COR/COE', 'type' => 'coe', 'subtitle' => 'Certificate of Enrolment / Registration', 'url' => 'coeUrl', 'valid' => 'coeAiIsValid', 'remarks' => 'coeAiRemarks', 'good' => 'Valid COR/COE', 'bad' => 'Warning / Invalid COE'],
         ['role' => "applicant.roleLower === 'student'", 'title' => 'Resume', 'url' => 'resumeUrl'],
-        ['role' => "applicant.roleLower !== 'student'", 'title' => 'Valid ID', 'url' => 'idUrl', 'valid' => 'isValid', 'remarks' => 'remarks', 'good' => 'Valid ID', 'bad' => 'Warning / Invalid ID'],
-        ['role' => "applicant.roleLower === 'employer'", 'title' => 'Business Permit / Certificate', 'url' => 'certUrl', 'valid' => 'certIsValid', 'remarks' => 'certRemarks', 'good' => 'Valid Certificate', 'bad' => 'Warning / Invalid Certificate'],
+        ['role' => "applicant.roleLower !== 'student'", 'title' => 'Valid ID', 'type' => 'valid_id', 'url' => 'idUrl', 'valid' => 'isValid', 'remarks' => 'remarks', 'good' => 'Valid ID', 'bad' => 'Warning / Invalid ID'],
+        ['role' => "applicant.roleLower === 'employer'", 'title' => 'Business Permit / Certificate', 'type' => 'certificate', 'url' => 'certUrl', 'valid' => 'certIsValid', 'remarks' => 'certRemarks', 'good' => 'Valid Certificate', 'bad' => 'Warning / Invalid Certificate'],
     ];
 @endphp
 <div x-show="openModal" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-6"
@@ -86,6 +86,15 @@
                                                 x-text="verdict(applicant.{{ $document['valid'] }}) === 'valid' ? '{{ $document['good'] }}' : (verdict(applicant.{{ $document['valid'] }}) === 'invalid' ? '{{ $document['bad'] }}' : 'Pending analysis')"></span>
                                         </div>
                                         <p class="mt-3 whitespace-pre-wrap break-words text-xs leading-6 text-slate-600" x-text="applicant.{{ $document['remarks'] }} || 'No analysis remarks available.'"></p>
+                                        <form x-show="verdict(applicant.{{ $document['valid'] }}) === 'pending'" method="POST"
+                                            :action="'{{ url('/admin/verification/retry-analysis') }}/' + applicant.userId"
+                                            @submit="$el.querySelector('button').disabled = true" class="mt-3">
+                                            @csrf
+                                            <input type="hidden" name="role" :value="applicant.roleLower">
+                                            <input type="hidden" name="document" value="{{ $document['type'] }}">
+                                            <p class="mb-2 text-xs leading-5 text-slate-500">The analysis may be queued or could not complete. You can request another check.</p>
+                                            <button type="submit" class="rounded-lg border border-stone-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-stone-50 disabled:opacity-50">Retry analysis</button>
+                                        </form>
                                     </div>
                                 @endisset
                             </div>

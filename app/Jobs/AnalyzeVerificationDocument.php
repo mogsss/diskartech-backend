@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -12,9 +13,24 @@ use Illuminate\Support\Facades\Log;
 use App\Services\UploadStorage;
 use App\Support\PlainTextInput;
 
-class AnalyzeVerificationDocument implements ShouldQueue
+class AnalyzeVerificationDocument implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public $tries = 3;
+    // Downloading the document and asking Gemini each have a 60-second HTTP limit.
+    public $timeout = 150;
+    public $uniqueFor = 900;
+
+    public function backoff(): array
+    {
+        return [30, 120];
+    }
+
+    public function uniqueId(): string
+    {
+        return hash('sha256', get_class($this->profile).':'.$this->profile->getKey().':'.$this->type.':'.$this->path);
+    }
 
     protected $profile;
     protected $path;
@@ -39,20 +55,28 @@ class AnalyzeVerificationDocument implements ShouldQueue
             default => ['valid_id_path', 'ai_is_valid', 'ai_remarks'],
         };
         $profile = $this->profile->fresh();
-        if (! $profile || $profile->{$documentField} !== $this->path) return;
+        if (! $profile || $profile->{$documentField} !== $this->path || $profile->getRawOriginal($validField) !== null) return;
 
         $profileClass = get_class($this->profile);
         $profileId = $this->profile->id ?? 'unknown';
 
-        Log::info("AnalyzeVerificationDocument: Starting analysis for {$this->type} (Profile: {$profileClass} #{$profileId}, File: {$this->path})");
+        Log::info("AnalyzeVerificationDocument: Starting analysis for {$this->type} (Profile: {$profileClass} #{$profileId})");
 
         if (!$apiKey) {
             Log::error('AnalyzeVerificationDocument: GEMINI_KEY is missing or empty in configuration.');
-            return;
+            throw new \RuntimeException('Document analysis configuration is missing.');
         }
 
+        $failureReason = 'document download unavailable';
         try {
-            $fileData = base64_encode(app(UploadStorage::class)->read($this->path));
+            $bytes = app(UploadStorage::class)->read($this->path);
+            // Use the bytes, including for recovered jobs whose old MIME hint is missing.
+            $mimeType = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
+            $failureReason = 'unsupported document format';
+            if (! in_array($mimeType, ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/x-ms-bmp'], true)) {
+                throw new \RuntimeException('Unsupported document format.');
+            }
+            $fileData = base64_encode($bytes);
             
             switch ($this->type) {
                 case 'school_id':
@@ -70,7 +94,8 @@ class AnalyzeVerificationDocument implements ShouldQueue
                     break;
             }
 
-            $aiResponse = Http::timeout(60)->withHeaders([
+            $failureReason = 'AI connection unavailable';
+            $aiResponse = Http::connectTimeout(10)->timeout(60)->withHeaders([
                 'x-goog-api-key' => $apiKey,
             ])->post('https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode(config('services.gemini.model', 'gemini-3.5-flash-lite')) . ':generateContent', [
                 "contents" => [
@@ -79,18 +104,27 @@ class AnalyzeVerificationDocument implements ShouldQueue
                             ["text" => $prompt],
                             [
                                 "inline_data" => [
-                                    "mime_type" => $this->mimeType,
+                                    "mime_type" => $mimeType,
                                     "data" => $fileData
                                 ]
                             ]
                         ]
                     ]
-                ]
+                ],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                    'responseSchema' => [
+                        'type' => 'OBJECT',
+                        'properties' => ['is_valid' => ['type' => 'BOOLEAN'], 'remarks' => ['type' => 'STRING']],
+                        'required' => ['is_valid', 'remarks'],
+                    ],
+                ],
             ]);
 
             if (!$aiResponse->successful()) {
                 Log::warning('AnalyzeVerificationDocument: AI service unavailable.', ['status' => $aiResponse->status()]);
-                return;
+                $failureReason = 'AI HTTP '.$aiResponse->status();
+                throw new \RuntimeException('AI service unavailable.');
             }
 
             $aiAnalysisResult = $aiResponse->json();
@@ -111,18 +145,22 @@ class AnalyzeVerificationDocument implements ShouldQueue
 
             if (! is_array($parsedAi) || ! is_bool($parsedAi['is_valid'] ?? null)) {
                 Log::warning('AnalyzeVerificationDocument: Invalid AI response; analysis remains pending.');
-                return;
+                $failureReason = 'invalid AI response';
+                throw new \RuntimeException('Invalid AI response.');
             }
             $remarks = is_string($parsedAi['remarks'] ?? null) ? PlainTextInput::normalize($parsedAi['remarks']) : '';
             if ($remarks === '' || PlainTextInput::containsMarkup($remarks)) $remarks = 'Document analysis completed.';
             // A re-upload during the network request must not receive stale results.
-            $profile->newQuery()->whereKey($profile->id)->where($documentField, $this->path)->update([
+            $profile->newQuery()->whereKey($profile->id)->where($documentField, $this->path)->whereNull($validField)->update([
                 $validField => $parsedAi['is_valid'], $remarksField => mb_substr($remarks, 0, 255),
             ]);
             Log::info("AnalyzeVerificationDocument: Finished analyzing {$this->type} for {$profileClass} #{$profileId}");
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::warning('AnalyzeVerificationDocument: Analysis could not complete.', ['exception' => get_class($e)]);
+            // Throw a safe exception so the queue retries and eventually records a failed job.
+            // Do not attach the provider exception: its trace may contain document data or credentials.
+            throw new \RuntimeException('Document analysis failed: '.$failureReason.'.');
         }
     }
 }

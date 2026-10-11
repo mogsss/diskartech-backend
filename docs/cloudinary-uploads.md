@@ -72,4 +72,23 @@ After deployment, upload a profile picture and a PDF document from each account 
 
 Automated coverage: `php artisan test --filter=CloudinaryUploadsTest` covers image/PDF byte delivery, signature restrictions, expired-link renewal, profile/avatar responses for all roles and admin avatar resolution. Run `node scripts/test-media-urls.cjs` in `DISKARTECH` for mobile URL handling. These tests mock the cloud network; a real upload with your configured credentials still needs the deployment check above.
 
+## Pending PDF / image analysis
+
+Viewing a file and analyzing it are separate operations. Gemini supports PDF input. Previously, a failed Cloudinary download, AI request or invalid JSON response returned successfully from the queue job, leaving the recommendation pending with no further attempts. Files uploaded while PDF delivery was blocked may therefore still need their analysis queued again after delivery is enabled.
+
+The analysis job now detects MIME from the actual bytes, requests JSON output with a boolean verdict, and throws safe errors so Laravel retries up to three attempts (30 and 120 seconds between retries). Its timeout is 150 seconds for the download plus AI request. Configure `QUEUE_CONNECTION=database` and `DB_QUEUE_RETRY_AFTER=180` on Render; Redis or Beanstalkd users must likewise set their retry interval above 150 seconds. The container entrypoint starts the background worker. Final failures appear in `php artisan queue:failed`; logs show HTTP status or exception class without document contents, provider responses or signed URLs. A failed analysis never sets a document invalid or changes account verification status.
+
+After deploying the updated code, open a pending document in the admin verification review and select **Retry analysis**. This authenticated, CSRF-protected action queues only that account's selected document, checks its actual role and verdict, and is limited to 10 requests per minute. It does not change verification status or completed results.
+
+For bulk recovery, use the **Render backend Shell** to preview and requeue unfinished checks:
+
+```sh
+php artisan verification:retry-analysis
+php artisan verification:retry-analysis --dispatch
+```
+
+Add `--user-id=123` to either command to limit it to one account. The command skips completed verdicts (including invalid/false), missing documents and resumes. A unique job lock prevents duplicate checks for the same document while a job is active; workers also skip completed results and replaced uploads. Reopen the admin review after processing to fetch the updated recommendation. If a check still fails, fix the indicated storage/AI configuration or quota issue before running the command again. No re-upload is required for an accessible existing file.
+
+References: [Gemini PDF input](https://ai.google.dev/gemini-api/docs/document-processing), [Gemini JSON output](https://ai.google.dev/api/generate-content#v1beta.GenerationConfig), [Laravel retries and worker timeouts](https://laravel.com/docs/12.x/queues#job-expiration).
+
 Official references: [PHP SDK](https://cloudinary.com/documentation/php_integration), [authenticated assets](https://cloudinary.com/documentation/control_access_to_media), [PDF delivery settings](https://cloudinary.com/documentation/pdf_optimization).

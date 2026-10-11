@@ -318,7 +318,11 @@ class CloudinaryUploadsTest extends TestCase
         Http::fake(['res.cloudinary.com/*' => Http::response(self::PDF), 'generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => '{"is_valid":true,"remarks":"Valid enrollment document"}']]]]]])]);
         (new AnalyzeVerificationDocument($student, self::DOCUMENT, 'application/pdf', 'coe'))->handle();
         $this->assertEquals(true, $student->fresh()->coe_ai_is_valid);
-        Http::assertSent(fn ($request) => str_contains($request->url(), 'generativelanguage') && $request['contents'][0]['parts'][1]['inline_data']['data'] === base64_encode(self::PDF));
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'generativelanguage')
+            && $request['contents'][0]['parts'][1]['inline_data']['data'] === base64_encode(self::PDF)
+            && $request['contents'][0]['parts'][1]['inline_data']['mime_type'] === 'application/pdf'
+            && $request['generationConfig']['responseMimeType'] === 'application/json'
+            && $request['generationConfig']['responseSchema']['properties']['is_valid']['type'] === 'BOOLEAN');
         $student->update(['coe' => 'replacement.pdf', 'coe_ai_is_valid' => null]);
         (new AnalyzeVerificationDocument($student, self::DOCUMENT, 'application/pdf', 'coe'))->handle();
         $this->assertNull($student->fresh()->coe_ai_is_valid); Http::assertSentCount(2);
@@ -329,8 +333,101 @@ class CloudinaryUploadsTest extends TestCase
         $student = Student::create(['user_id' => 1, 'coe' => 'old.pdf']);
         Storage::disk('public')->put('old.pdf', self::PDF);
         Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => 'not JSON']]]]]])]);
-        (new AnalyzeVerificationDocument($student, 'old.pdf', 'application/pdf', 'coe'))->handle();
+        try {
+            (new AnalyzeVerificationDocument($student, 'old.pdf', 'application/pdf', 'coe'))->handle();
+            $this->fail('An invalid response must fail the job so it can be retried.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Document analysis failed: invalid AI response.', $exception->getMessage());
+        }
         $this->assertNull($student->fresh()->coe_ai_is_valid);
+    }
+
+    public function test_transient_ai_failure_can_retry_a_pdf_and_preserves_manual_verification(): void
+    {
+        $employer = Employer::create(['user_id' => 2, 'employer_certificate_path' => 'permit.pdf', 'isVerified' => true]);
+        Storage::disk('public')->put('permit.pdf', self::PDF);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::sequence()
+            ->push(['error' => ['message' => 'Private provider details']], 429)
+            ->push(['candidates' => [['content' => ['parts' => [['text' => '{"is_valid":false,"remarks":"Not a business permit"}']]]]]])]);
+        // The MIME is deliberately wrong; the PDF bytes must determine the input format.
+        $job = new AnalyzeVerificationDocument($employer, 'permit.pdf', 'image/jpeg', 'certificate');
+        $this->assertSame(3, $job->tries);
+        $this->assertSame([30, 120], $job->backoff());
+        $this->assertLessThan(config('queue.connections.database.retry_after'), $job->timeout);
+        try {
+            $job->handle();
+            $this->fail('A provider failure must be retryable.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Document analysis failed: AI HTTP 429.', $exception->getMessage());
+            $this->assertNull($exception->getPrevious());
+        }
+        $this->assertNull($employer->fresh()->cert_ai_is_valid);
+        $job->handle();
+        $this->assertEquals(false, $employer->fresh()->cert_ai_is_valid);
+        $this->assertTrue((bool) $employer->fresh()->isVerified);
+        // A duplicate job must not overwrite a completed result, including a false result.
+        $job->handle();
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($request) => $request['contents'][0]['parts'][1]['inline_data']['mime_type'] === 'application/pdf');
+    }
+
+    public function test_cloud_delivery_failure_is_retryable_without_leaking_provider_details(): void
+    {
+        $household = Household::create(['user_id' => 3, 'valid_id_path' => self::DOCUMENT]);
+        $this->mock(CloudinaryGateway::class, fn ($mock) => $mock->shouldReceive('documentUrl')->once()->andReturn('https://res.cloudinary.com/test-cloud/private-signed-link'));
+        Http::fake(['res.cloudinary.com/*' => Http::response('Private delivery error', 401)]);
+        try {
+            (new AnalyzeVerificationDocument($household, self::DOCUMENT, 'application/pdf', 'valid_id'))->handle();
+            $this->fail('A failed download must fail the job so it can be retried.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Document analysis failed: document download unavailable.', $exception->getMessage());
+            $this->assertNull($exception->getPrevious());
+        }
+        $this->assertNull($household->fresh()->ai_is_valid);
+        Http::assertSentCount(1);
+    }
+
+    public function test_reupload_during_ai_request_never_receives_the_old_document_result(): void
+    {
+        $student = Student::create(['user_id' => 1, 'coe' => 'old.pdf']);
+        Storage::disk('public')->put('old.pdf', self::PDF);
+        Http::fake(function () use ($student) {
+            $student->update(['coe' => 'new.pdf', 'coe_ai_is_valid' => null]);
+            return Http::response(['candidates' => [['content' => ['parts' => [['text' => '{"is_valid":true,"remarks":"Valid old document"}']]]]]]);
+        });
+        (new AnalyzeVerificationDocument($student, 'old.pdf', null, 'coe'))->handle();
+        $this->assertSame('new.pdf', $student->fresh()->coe);
+        $this->assertNull($student->fresh()->coe_ai_is_valid);
+        $this->assertNull($student->fresh()->coe_ai_remarks);
+    }
+
+    public function test_recovery_command_previews_then_queues_only_pending_documents_without_duplicates(): void
+    {
+        config(['queue.default' => 'database']);
+        $student = Student::create(['user_id' => 1, 'coe' => self::DOCUMENT, 'school_id' => 'reviewed-id.png', 'school_id_ai_is_valid' => false]);
+        Employer::create(['user_id' => 2, 'valid_id_path' => 'employer-id.pdf', 'employer_certificate_path' => 'permit.pdf', 'cert_ai_is_valid' => true]);
+        Household::create(['user_id' => 3, 'valid_id_path' => 'household-id.pdf']);
+        $this->artisan('verification:retry-analysis')->expectsOutputToContain('Pending documents: 3.')->expectsOutputToContain('Preview only')->assertSuccessful();
+        Queue::assertNothingPushed();
+        $this->artisan('verification:retry-analysis --dispatch --user-id=1')->expectsOutputToContain('Pending documents: 1.')->assertSuccessful();
+        Queue::assertPushed(AnalyzeVerificationDocument::class, 1);
+        $this->artisan('verification:retry-analysis --dispatch --user-id=1')->assertSuccessful();
+        Queue::assertPushed(AnalyzeVerificationDocument::class, 1);
+        $this->artisan('verification:retry-analysis --dispatch')->assertSuccessful();
+        Queue::assertPushed(AnalyzeVerificationDocument::class, 3);
+        $this->assertNull($student->fresh()->coe_ai_is_valid);
+        $this->assertEquals(false, $student->fresh()->school_id_ai_is_valid);
+        Http::assertNothingSent();
+    }
+
+    public function test_recovery_command_rejects_invalid_scope_and_missing_configuration(): void
+    {
+        $this->artisan('verification:retry-analysis', ['--user-id' => '1 OR 1=1'])->assertFailed();
+        config(['services.gemini.key' => null]);
+        $this->artisan('verification:retry-analysis --dispatch')->expectsOutputToContain('Configure GEMINI_KEY')->assertFailed();
+        config(['services.gemini.key' => 'test-ai-key', 'queue.default' => 'sync']);
+        $this->artisan('verification:retry-analysis --dispatch')->expectsOutputToContain('asynchronous queue')->assertFailed();
+        Queue::assertNothingPushed();
     }
 
     public function test_migration_previews_then_moves_existing_files_once_and_preserves_missing_references(): void

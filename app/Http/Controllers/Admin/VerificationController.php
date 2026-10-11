@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\AnalyzeVerificationDocument;
 use App\Models\User;
 use App\Support\PlainTextInput;
 use Illuminate\Database\Eloquent\Builder;
@@ -136,5 +137,27 @@ class VerificationController extends Controller
         $profile->rejection_reason = null;
         $profile->save();
         return back()->with('success', 'Verification approved successfully.');
+    }
+
+    public function retryAnalysis(Request $request, $id)
+    {
+        [$profile] = $this->reviewedProfile($request, $id);
+        $types = match ($request->input('role')) {
+            'student' => ['school_id' => ['school_id', 'school_id_ai_is_valid'], 'coe' => ['coe', 'coe_ai_is_valid']],
+            'employer' => ['valid_id' => ['valid_id_path', 'ai_is_valid'], 'certificate' => ['employer_certificate_path', 'cert_ai_is_valid']],
+            'household' => ['valid_id' => ['valid_id_path', 'ai_is_valid']],
+        };
+        $data = $request->validate(['document' => ['required', Rule::in(array_keys($types))]]);
+        if (! $profile) return back()->with('error', 'Applicant profile not found.');
+        [$field, $validField] = $types[$data['document']];
+        $path = $profile->getRawOriginal($field);
+        if (! is_string($path) || trim($path) === '') return back()->with('error', 'Upload the document before requesting analysis.');
+        if ($profile->getRawOriginal($validField) !== null) return back()->with('success', 'This document already has an AI result.');
+        if (! config('services.gemini.key')) return back()->with('error', 'The document analysis service is not configured.');
+        if (in_array(config('queue.default'), ['sync', 'null'], true)) {
+            return back()->with('error', 'Configure a background queue before requesting analysis.');
+        }
+        AnalyzeVerificationDocument::dispatch($profile, $path, null, $data['document'])->afterCommit();
+        return back()->with('success', 'Document analysis requested. Reopen the review after processing to see the result.');
     }
 }

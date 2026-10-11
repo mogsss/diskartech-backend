@@ -18,6 +18,7 @@ class AdminSessionTest extends TestCase
 {
     private Admin $admin;
     private array $browsers = [];
+    private array $ownerCookies = [];
     private const PASSWORD = 'Original-password1!';
 
     protected function setUp(): void
@@ -32,11 +33,7 @@ class AdminSessionTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-10-11 08:00:00', 'UTC'));
         (require database_path('migrations/2026_08_14_092718_create_admins_table.php'))->up();
         (require database_path('migrations/2026_10_11_180000_add_active_session_to_admins_table.php'))->up();
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary(); $table->unsignedBigInteger('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable(); $table->text('user_agent')->nullable();
-            $table->longText('payload'); $table->integer('last_activity')->index();
-        });
+        (require database_path('migrations/2026_10_11_190000_create_sessions_table.php'))->up();
         $this->admin = Admin::create(['name' => 'Example Admin', 'email' => 'admin@example.com', 'password' => Hash::make(self::PASSWORD)]);
     }
 
@@ -55,16 +52,123 @@ class AdminSessionTest extends TestCase
         $this->app['session']->forgetDrivers();
         $this->app->forgetInstance('session.store');
         $this->app->forgetInstance('redirect');
+        $this->unencryptedCookies = [];
+        if (($this->ownerCookies[$browser]['expires'] ?? 0) > now()->getTimestamp()) {
+            // The response cookie is already encrypted by the web middleware.
+            $this->withUnencryptedCookie(AdminSession::COOKIE_NAME, $this->ownerCookies[$browser]['value']);
+        }
         $this->withCookie(config('session.cookie'), $this->browsers[$browser] ?? Str::random(40));
         $this->withHeader('Accept', $json ? 'application/json' : 'text/html');
         $response = $this->call($method, $uri, $data, $this->prepareCookiesForRequest(), [], $this->transformHeadersToServerVars($this->defaultHeaders));
         $this->browsers[$browser] = $this->app['session.store']->getId();
+        foreach ($response->headers->getCookies() as $cookie) {
+            if ($cookie->getName() !== AdminSession::COOKIE_NAME) continue;
+            if ($cookie->getExpiresTime() <= now()->getTimestamp()) {
+                unset($this->ownerCookies[$browser]);
+            } else {
+                $this->ownerCookies[$browser] = ['value' => $cookie->getValue(), 'expires' => $cookie->getExpiresTime()];
+            }
+        }
         return $response;
     }
 
     private function login(string $browser, ?Admin $admin = null, string $uri = '/admin/login'): TestResponse
     {
         return $this->browser($browser, 'POST', $uri, ['email' => ($admin ?? $this->admin)->email, 'password' => self::PASSWORD]);
+    }
+
+    public function test_reopening_the_same_browser_returns_to_dashboard_without_another_device_error(): void
+    {
+        $this->login('first')->assertRedirect('/admin/dashboard');
+        $owner = $this->admin->fresh()->active_session_token;
+        $this->browser('first', 'GET', '/admin/login')->assertRedirect('/admin/dashboard')->assertSessionHasNoErrors();
+        $this->login('first', uri: '/login')->assertRedirect('/admin/dashboard')->assertSessionHasNoErrors();
+        $this->browser('first', 'GET', '/admin/settings')->assertOk();
+        $this->assertSame($owner, $this->admin->fresh()->active_session_token);
+    }
+
+    public function test_same_browser_can_reauthenticate_after_server_session_is_lost(): void
+    {
+        $response = $this->login('first')->assertRedirect('/admin/dashboard');
+        $owner = $this->admin->fresh()->active_session_token;
+        $token = session(AdminSession::SESSION_KEY);
+        $cookie = collect($response->headers->getCookies())->first(fn ($cookie) => $cookie->getName() === AdminSession::COOKIE_NAME);
+        $this->assertTrue($cookie->isHttpOnly());
+        $this->assertSame('lax', $cookie->getSameSite());
+        $this->assertStringNotContainsString($token, $cookie->getValue());
+        DB::table('sessions')->where('id', $this->browsers['first'])->delete();
+
+        $this->login('second')->assertSessionHasErrors('email');
+        $this->login('first')->assertRedirect('/admin/dashboard')->assertSessionHasNoErrors();
+        $this->assertNotSame($owner, $this->admin->fresh()->active_session_token);
+        $this->browser('first', 'GET', '/admin/settings')->assertOk();
+        $this->login('second')->assertSessionHasErrors('email');
+    }
+
+    public function test_file_session_loss_does_not_block_the_owning_browser(): void
+    {
+        $directory = storage_path('framework/testing/admin-session-'.Str::uuid());
+        mkdir($directory, 0777, true);
+        config(['session.driver' => 'file', 'session.files' => $directory]);
+        try {
+            $this->login('first')->assertRedirect('/admin/dashboard');
+            unlink($directory.'/'.$this->browsers['first']);
+            $this->login('second')->assertSessionHasErrors('email');
+            $this->login('first')->assertRedirect('/admin/dashboard')->assertSessionHasNoErrors();
+            $this->browser('first', 'GET', '/admin/settings')->assertOk();
+        } finally {
+            foreach (glob($directory.'/*') as $file) unlink($file);
+            rmdir($directory);
+        }
+    }
+
+    public function test_missing_session_ownership_token_is_restored_from_authenticated_cookie(): void
+    {
+        $this->login('first')->assertRedirect('/admin/dashboard');
+        $owner = $this->admin->fresh()->active_session_token;
+        $row = DB::table('sessions')->where('id', $this->browsers['first'])->first();
+        $payload = unserialize(base64_decode($row->payload));
+        unset($payload[AdminSession::SESSION_KEY]);
+        DB::table('sessions')->where('id', $row->id)->update(['payload' => base64_encode(serialize($payload))]);
+        $this->browser('first', 'GET', '/admin/settings')->assertOk()->assertSessionHas(AdminSession::SESSION_KEY);
+        $this->assertSame($owner, $this->admin->fresh()->active_session_token);
+        $this->login('second')->assertSessionHasErrors('email');
+    }
+
+    public function test_recovery_requires_correct_credentials_and_does_not_disclose_ownership_on_failure(): void
+    {
+        $this->login('first')->assertRedirect('/admin/dashboard');
+        $owner = $this->admin->fresh()->active_session_token;
+        DB::table('sessions')->where('id', $this->browsers['first'])->delete();
+        $this->browser('first', 'POST', '/admin/login', ['email' => $this->admin->email, 'password' => 'Wrong-password1!'])
+            ->assertSessionHasErrors('email')->assertSessionHas('errors', fn ($errors) => $errors->first('email') === 'The provided credentials do not match our records.');
+        $this->assertGuest('admin');
+        $this->assertSame($owner, $this->admin->fresh()->active_session_token);
+        $this->login('first')->assertRedirect('/admin/dashboard');
+    }
+
+    public function test_tampered_cookie_cannot_claim_another_browsers_login(): void
+    {
+        $this->login('first')->assertRedirect('/admin/dashboard');
+        $owner = $this->admin->fresh()->active_session_token;
+        $this->ownerCookies['second'] = ['value' => 'tampered-cookie', 'expires' => now()->addHour()->getTimestamp()];
+        $this->login('second')->assertSessionHasErrors('email');
+        $this->assertGuest('admin');
+        $this->assertSame($owner, $this->admin->fresh()->active_session_token);
+        $this->browser('first', 'GET', '/admin/settings')->assertOk();
+    }
+
+    public function test_old_recovery_cookie_cannot_replace_a_new_active_browser(): void
+    {
+        $this->login('first')->assertRedirect('/admin/dashboard');
+        $this->ownerCookies['first']['expires'] = now()->addHours(4)->getTimestamp();
+        $this->travel(120)->minutes();
+        $this->login('second')->assertRedirect('/admin/dashboard');
+        $owner = $this->admin->fresh()->active_session_token;
+        DB::table('sessions')->where('id', $this->browsers['first'])->delete();
+        $this->login('first')->assertSessionHasErrors('email');
+        $this->assertSame($owner, $this->admin->fresh()->active_session_token);
+        $this->browser('second', 'GET', '/admin/settings')->assertOk();
     }
 
     public function test_new_browser_is_blocked_and_first_browser_remains_signed_in(): void
@@ -101,10 +205,12 @@ class AdminSessionTest extends TestCase
         $this->login('second', uri: '/login')->assertSessionHasErrors('email');
         $this->browser('first', 'POST', '/admin/logout')->assertRedirect('/admin/login');
         $this->assertGuest('admin');
+        $this->assertArrayNotHasKey('first', $this->ownerCookies);
         $this->assertNull($this->admin->fresh()->active_session_token);
         $this->assertNull($this->admin->fresh()->active_session_expires_at);
         $this->login('second')->assertRedirect('/admin/dashboard');
         $this->browser('second', 'GET', '/admin/settings')->assertOk();
+        $this->login('first')->assertSessionHasErrors('email');
     }
 
     public function test_idle_expiration_allows_new_login_without_old_browser_reviving_or_releasing_it(): void
@@ -215,5 +321,18 @@ class AdminSessionTest extends TestCase
         $migration->up();
         $this->assertTrue(Schema::hasColumn('admins', 'active_session_token'));
         $this->assertNull($this->admin->fresh()->active_session_token);
+    }
+
+    public function test_sessions_migration_preserves_an_existing_session_table_and_active_login(): void
+    {
+        $this->login('first')->assertRedirect('/admin/dashboard');
+        $id = $this->browsers['first'];
+        $payload = DB::table('sessions')->where('id', $id)->value('payload');
+        $migration = require database_path('migrations/2026_10_11_190000_create_sessions_table.php');
+        $migration->up();
+        $migration->down();
+        $this->assertTrue(Schema::hasTable('sessions'));
+        $this->assertSame($payload, DB::table('sessions')->where('id', $id)->value('payload'));
+        $this->browser('first', 'GET', '/admin/settings')->assertOk();
     }
 }
