@@ -24,6 +24,9 @@ php artisan migrate --force || true
 # Online interview scheduling/closure depends on this field; fail startup if unavailable.
 php artisan migrate --path=database/migrations/2026_10_10_160000_add_interview_ended_at_to_job_applications.php --force --no-interaction
 
+# Admin login ownership must be available before accepting sign-in requests.
+php artisan migrate --path=database/migrations/2026_10_11_180000_add_active_session_to_admins_table.php --force --no-interaction
+
 # Cache Laravel configurations, routes, and views for maximum performance
 php artisan config:cache || true
 php artisan route:cache || true

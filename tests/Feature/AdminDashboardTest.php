@@ -14,6 +14,7 @@ class AdminDashboardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutMiddleware(\App\Http\Middleware\EnsureSingleAdminSession::class);
         config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:']);
         Carbon::setTestNow(Carbon::parse('2026-10-11 05:00:00', 'UTC'));
         Schema::create('users', function (Blueprint $table) { $table->id(); $table->string('email'); $table->string('role'); $table->timestamps(); });

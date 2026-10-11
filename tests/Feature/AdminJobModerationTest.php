@@ -13,6 +13,7 @@ class AdminJobModerationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutMiddleware(\App\Http\Middleware\EnsureSingleAdminSession::class);
         config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:']);
         Schema::create('users', function (Blueprint $table) { $table->id(); $table->string('email'); $table->string('role'); $table->timestamps(); });
         foreach (['employers' => ['employer_name', 'hirer_name', 'contact_number'], 'households' => ['household_name', 'cp_number']] as $name => $fields) {

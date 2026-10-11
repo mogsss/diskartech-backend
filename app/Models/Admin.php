@@ -19,5 +19,7 @@ class Admin extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'active_session_token',
+        'active_session_expires_at',
     ];
 }

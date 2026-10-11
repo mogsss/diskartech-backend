@@ -13,6 +13,7 @@ class AdminUserTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutMiddleware(\App\Http\Middleware\EnsureSingleAdminSession::class);
         config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:']);
         Schema::create('users', function (Blueprint $table) { $table->id(); $table->string('email'); $table->string('role'); $table->string('password')->nullable(); $table->timestamps(); });
         foreach (['students' => ['student_name', 'student_school_name', 'course', 'year_level', 'contact_number'], 'employers' => ['hirer_name', 'employer_name', 'business_type', 'contact_number'], 'households' => ['household_name', 'cp_number']] as $name => $fields) {

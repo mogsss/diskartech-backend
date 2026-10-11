@@ -38,7 +38,7 @@
             @csrf
             <div>
                 <label class="block text-slate-700 text-xs font-semibold mb-1.5">Email address</label>
-                <input type="email" name="email" required placeholder="admin@diskartech.com" class="w-full bg-[#F2EDE4]/50 border border-stone-200 text-xs rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-800 placeholder-slate-400 transition">
+                <input type="email" name="email" value="{{ old('email') }}" maxlength="255" autocomplete="username" required placeholder="admin@diskartech.com" class="w-full bg-[#F2EDE4]/50 border border-stone-200 text-xs rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-800 placeholder-slate-400 transition">
             </div>
 
             <div>

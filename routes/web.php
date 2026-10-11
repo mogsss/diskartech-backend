@@ -40,7 +40,7 @@ Route::middleware(['guest:admin'])->group(function () {
 });
 
 // Admin Console Routes (Protected)
-Route::middleware(['auth:admin'])->group(function () {
+Route::middleware(['auth:admin', \App\Http\Middleware\EnsureSingleAdminSession::class])->group(function () {
     // Dashboard Route
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
 
