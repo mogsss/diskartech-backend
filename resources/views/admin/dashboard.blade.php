@@ -75,7 +75,7 @@
                                             $profile = match ($user->role) { 'student' => $user->studentProfile, 'employer' => $user->employerProfile, 'household' => $user->householdProfile };
                                             $name = match ($user->role) { 'student' => $profile->student_name, 'employer' => $profile->hirer_name, 'household' => $profile->household_name } ?: $user->email;
                                             $reference = match ($user->role) { 'student' => $profile->student_school_name, 'employer' => $profile->employer_name, 'household' => $profile->household_name } ?: 'Not provided';
-                                            $documentUrl = fn ($path) => $path ? asset('storage/' . $path) : '';
+                                            $documentUrl = fn ($path) => app(\App\Services\UploadStorage::class)->url($path) ?? '';
                                             $reviewPayload = [
                                                 'userId' => $user->id, 'name' => $name, 'role' => ucfirst($user->role), 'roleLower' => $user->role, 'reference' => $reference,
                                                 'isValid' => $profile->ai_is_valid, 'remarks' => $profile->ai_remarks ?? 'No remarks.',

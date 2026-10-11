@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\JobApplication;
 use App\Models\Jobs;
 use App\Support\PlainTextInput;
+use App\Services\UploadStorage;
 
 class EmployerController extends Controller
 {
@@ -18,11 +19,12 @@ class EmployerController extends Controller
 
         $user = $request->user();
         $file = $request->file('profile_picture');
-        $filename = time() . '_' . $file->getClientOriginalName();
+        abort_unless(in_array($user->role, ['employer', 'household'], true), 403);
+        $storage = app(UploadStorage::class);
 
         // 👇 Tukuyin ang folder depende sa role ng user
         if ($user->role === 'household') {
-            $path = $file->storeAs('household/avatar', $filename, 'public');
+            $path = $storage->store($file, 'household/avatar', true);
 
             // Isinave na relative path lang (halimbawa: household/avatar/filename.jpg)
             \App\Models\Household::where('user_id', $user->id)->update([
@@ -30,7 +32,7 @@ class EmployerController extends Controller
             ]);
         } else {
             // Default para sa employer
-            $path = $file->storeAs('employers/avatar', $filename, 'public');
+            $path = $storage->store($file, 'employers/avatar', true);
 
             // Isinave na relative path lang (halimbawa: employers/avatar/filename.jpg)
             \App\Models\Employer::where('user_id', $user->id)->update([
@@ -39,7 +41,7 @@ class EmployerController extends Controller
         }
 
         // Buong URL pa rin ang ibabato sa JSON response para sa mobile app
-        $url = asset('storage/' . $path);
+        $url = $storage->url($path);
 
         return response()->json([
             'status' => 'success',

@@ -9,6 +9,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Services\UploadStorage;
+use App\Support\PlainTextInput;
 
 class AnalyzeVerificationDocument implements ShouldQueue
 {
@@ -30,7 +32,14 @@ class AnalyzeVerificationDocument implements ShouldQueue
     public function handle()
     {
         $apiKey = config('services.gemini.key');
-        $fullPath = storage_path('app/public/' . $this->path);
+        [$documentField, $validField, $remarksField] = match ($this->type) {
+            'school_id' => ['school_id', 'school_id_ai_is_valid', 'school_id_ai_remarks'],
+            'coe' => ['coe', 'coe_ai_is_valid', 'coe_ai_remarks'],
+            'certificate' => ['employer_certificate_path', 'cert_ai_is_valid', 'cert_ai_remarks'],
+            default => ['valid_id_path', 'ai_is_valid', 'ai_remarks'],
+        };
+        $profile = $this->profile->fresh();
+        if (! $profile || $profile->{$documentField} !== $this->path) return;
 
         $profileClass = get_class($this->profile);
         $profileId = $this->profile->id ?? 'unknown';
@@ -42,13 +51,8 @@ class AnalyzeVerificationDocument implements ShouldQueue
             return;
         }
 
-        if (!file_exists($fullPath)) {
-            Log::error("AnalyzeVerificationDocument: File not found at {$fullPath}");
-            return;
-        }
-
         try {
-            $fileData = base64_encode(file_get_contents($fullPath));
+            $fileData = base64_encode(app(UploadStorage::class)->read($this->path));
             
             switch ($this->type) {
                 case 'school_id':
@@ -85,7 +89,8 @@ class AnalyzeVerificationDocument implements ShouldQueue
             ]);
 
             if (!$aiResponse->successful()) {
-                Log::error("AnalyzeVerificationDocument: Gemini API error ({$aiResponse->status()}): " . $aiResponse->body());
+                Log::warning('AnalyzeVerificationDocument: AI service unavailable.', ['status' => $aiResponse->status()]);
+                return;
             }
 
             $aiAnalysisResult = $aiResponse->json();
@@ -104,46 +109,20 @@ class AnalyzeVerificationDocument implements ShouldQueue
             $cleanJson = trim(preg_replace('/^```[a-z]*\s+|\s+```$/i', '', $cleanJson));
             $parsedAi = json_decode($cleanJson, true);
 
-            if ($this->type === 'school_id') {
-                if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
-                    $this->profile->school_id_ai_is_valid = (bool)$parsedAi['is_valid'];
-                    $this->profile->school_id_ai_remarks = !empty($parsedAi['remarks']) ? $parsedAi['remarks'] : 'School ID analyzed successfully.';
-                } else {
-                    $this->profile->school_id_ai_is_valid = true;
-                    $this->profile->school_id_ai_remarks = 'School ID uploaded and stored successfully.';
-                }
-            } elseif ($this->type === 'coe') {
-                if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
-                    $this->profile->coe_ai_is_valid = (bool)$parsedAi['is_valid'];
-                    $this->profile->coe_ai_remarks = !empty($parsedAi['remarks']) ? $parsedAi['remarks'] : 'Certificate of Enrollment (COR) analyzed successfully.';
-                } else {
-                    $this->profile->coe_ai_is_valid = true;
-                    $this->profile->coe_ai_remarks = 'Certificate of Enrollment (COR) uploaded successfully.';
-                }
-            } elseif ($this->type === 'certificate') {
-                if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
-                    $this->profile->cert_ai_is_valid = (bool)$parsedAi['is_valid'];
-                    $this->profile->cert_ai_remarks = !empty($parsedAi['remarks']) ? $parsedAi['remarks'] : 'Business permit analyzed successfully.';
-                } else {
-                    $this->profile->cert_ai_is_valid = true;
-                    $this->profile->cert_ai_remarks = 'Business permit uploaded successfully.';
-                }
-            } else {
-                // valid_id for employer & household
-                if (is_array($parsedAi) && isset($parsedAi['is_valid'])) {
-                    $this->profile->ai_is_valid = (bool)$parsedAi['is_valid'];
-                    $this->profile->ai_remarks = !empty($parsedAi['remarks']) ? $parsedAi['remarks'] : 'Valid ID analyzed successfully.';
-                } else {
-                    $this->profile->ai_is_valid = true;
-                    $this->profile->ai_remarks = 'Valid ID uploaded and stored successfully.';
-                }
+            if (! is_array($parsedAi) || ! is_bool($parsedAi['is_valid'] ?? null)) {
+                Log::warning('AnalyzeVerificationDocument: Invalid AI response; analysis remains pending.');
+                return;
             }
-
-            $this->profile->save();
+            $remarks = is_string($parsedAi['remarks'] ?? null) ? PlainTextInput::normalize($parsedAi['remarks']) : '';
+            if ($remarks === '' || PlainTextInput::containsMarkup($remarks)) $remarks = 'Document analysis completed.';
+            // A re-upload during the network request must not receive stale results.
+            $profile->newQuery()->whereKey($profile->id)->where($documentField, $this->path)->update([
+                $validField => $parsedAi['is_valid'], $remarksField => mb_substr($remarks, 0, 255),
+            ]);
             Log::info("AnalyzeVerificationDocument: Finished analyzing {$this->type} for {$profileClass} #{$profileId}");
 
         } catch (\Exception $e) {
-            Log::error('AnalyzeVerificationDocument: Exception occurred:', ['error' => $e->getMessage()]);
+            Log::warning('AnalyzeVerificationDocument: Analysis could not complete.', ['exception' => get_class($e)]);
         }
     }
 }

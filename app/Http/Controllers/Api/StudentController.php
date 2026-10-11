@@ -8,6 +8,7 @@ use App\Models\JobApplication;
 use App\Models\Jobs;
 use App\Models\Student;
 use App\Support\PlainTextInput;
+use App\Services\UploadStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -119,7 +120,9 @@ class StudentController extends Controller
     {
         $request->validate([
             'document_type' => 'required|string|in:student_resume,school_id,coe,profile_picture',
-            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'file' => $request->input('document_type') === 'profile_picture'
+                ? 'required|image|mimes:jpg,jpeg,png,webp|max:5120'
+                : 'required|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',
         ]);
 
         $user = $request->user();
@@ -144,11 +147,8 @@ class StudentController extends Controller
                 $folderName .= 'profile_pictures';
             }
 
-            $originalName = urldecode($file->getClientOriginalName());
-            $cleanName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
-            $cleanName = preg_replace('/_+/', '_', $cleanName);
-            $filename = time() . '_' . trim($cleanName, '_');
-            $path = $file->storeAs($folderName, $filename, 'public');
+            $storage = app(UploadStorage::class);
+            $path = $storage->store($file, $folderName, $docType === 'profile_picture');
 
             $columnToUpdate = $docType;
             if ($docType === 'profile_picture') {
@@ -169,19 +169,20 @@ class StudentController extends Controller
             $student->update($updateData);
 
             if ($docType === 'school_id' || $docType === 'coe') {
-                AnalyzeVerificationDocument::dispatch($student, $path, $file->getClientMimeType(), $docType);
+                AnalyzeVerificationDocument::dispatch($student, $path, $file->getMimeType(), $docType)->afterCommit();
             }
 
-            $fullUrl = asset('storage/' . $path);
+            $fullUrl = $storage->url($path);
+            $responsePath = $storage->isDocument($path) ? $fullUrl : $path;
 
             return response()->json([
-                $docType => $path,
-                'avatar' => $path,
-                'profile_picture' => $path,
+                $docType => $responsePath,
+                'avatar' => $responsePath,
+                'profile_picture' => $responsePath,
                 'full_url' => $fullUrl,
                 'status' => 'success',
                 'message' => 'Document uploaded successfully!',
-                'file_path' => $path,
+                'file_path' => $responsePath,
                 'docs_count' => $student->docs_count
             ], 200);
         }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Student extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\SerializesCloudinaryDocuments;
 
     protected $fillable = [
         'user_id',

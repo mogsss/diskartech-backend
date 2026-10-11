@@ -23,10 +23,15 @@ Route::get('/', function () {
 Route::get('/certificate/{id}/view', [\App\Http\Controllers\CertificateWebController::class, 'viewCertificate'])->name('certificate.view');
 
 // Fallback direct storage file serving route for uploads and avatars
+Route::get('/media/{path}', [\App\Http\Controllers\MediaController::class, 'document'])
+    ->where('path', '.*')->middleware('signed')->name('media.document');
+
 Route::get('/storage/{path}', function ($path) {
-    $filePath = storage_path('app/public/' . $path);
-    if (file_exists($filePath)) {
-        return response()->file($filePath);
+    app(\App\Services\UploadStorage::class)->assertSafePath($path);
+    abort_if(str_starts_with($path, 'cloudinary/'), 404);
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    if ($disk->exists($path)) {
+        return response()->file($disk->path($path));
     }
     abort(404);
 })->where('path', '.*');

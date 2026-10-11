@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Services\GmailOtpMailer;
@@ -19,6 +18,7 @@ use App\Services\GmailDeliveryException;
 use Carbon\Carbon;
 use App\Jobs\AnalyzeVerificationDocument;
 use App\Support\PinamalayanLocation;
+use App\Services\UploadStorage;
 
 class AuthController extends Controller
 {
@@ -41,6 +41,9 @@ class AuthController extends Controller
             'detailed_address' => 'nullable|string',
             'age' => 'nullable|integer',
             'gender' => 'nullable|string',
+            'school_id_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,heic,heif,bmp|max:10240',
+            'coe_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,heic,heif,bmp|max:10240',
+            'resume_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp|max:10240',
             ...$locationRules,
         ], [
             'email.unique' => 'This email address is already registered.',
@@ -80,22 +83,22 @@ class AuthController extends Controller
             ];
 
             if ($request->hasFile('school_id_path')) {
-                $studentData['school_id'] = $request->file('school_id_path')->store('students/school_ids', 'public');
+                $studentData['school_id'] = app(UploadStorage::class)->store($request->file('school_id_path'), 'students/school_ids');
             }
             if ($request->hasFile('coe_path')) {
-                $studentData['coe'] = $request->file('coe_path')->store('students/coes', 'public');
+                $studentData['coe'] = app(UploadStorage::class)->store($request->file('coe_path'), 'students/coes');
             }
             if ($request->hasFile('resume_path')) {
-                $studentData['student_resume'] = $request->file('resume_path')->store('students/resumes', 'public');
+                $studentData['student_resume'] = app(UploadStorage::class)->store($request->file('resume_path'), 'students/resumes');
             }
 
             $student = Student::create($studentData);
 
             if ($request->hasFile('school_id_path') && !empty($studentData['school_id'])) {
-                AnalyzeVerificationDocument::dispatch($student, $studentData['school_id'], $request->file('school_id_path')->getClientMimeType(), 'school_id');
+                AnalyzeVerificationDocument::dispatch($student, $studentData['school_id'], $request->file('school_id_path')->getMimeType(), 'school_id')->afterCommit();
             }
             if ($request->hasFile('coe_path') && !empty($studentData['coe'])) {
-                AnalyzeVerificationDocument::dispatch($student, $studentData['coe'], $request->file('coe_path')->getClientMimeType(), 'coe');
+                AnalyzeVerificationDocument::dispatch($student, $studentData['coe'], $request->file('coe_path')->getMimeType(), 'coe')->afterCommit();
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -107,7 +110,7 @@ class AuthController extends Controller
                 'message' => 'Student account created successfully! Please verify your email.',
                 'token' => $token,
                 'user' => $user,
-                'student_profile' => $student,
+                'student_profile' => $student->withOwnedDocumentLinks(),
                 'profile' => $student
             ], 201);
         } catch (\Exception $e) {
@@ -130,6 +133,8 @@ class AuthController extends Controller
             'phone' => 'required|string',
             'business_name' => 'required|string',
             'business_type' => 'required|string',
+            'certificate_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,heic,heif,bmp|max:10240',
+            'valid_id_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,heic,heif,bmp|max:10240',
             'address' => 'nullable|string',
             'detailed_address' => 'nullable|string',
             ...$locationRules,
@@ -168,19 +173,19 @@ class AuthController extends Controller
             ];
 
             if ($request->hasFile('certificate_path')) {
-                $employerData['employer_certificate_path'] = $request->file('certificate_path')->store('employers/certificates', 'public');
+                $employerData['employer_certificate_path'] = app(UploadStorage::class)->store($request->file('certificate_path'), 'employers/certificates');
             }
             if ($request->hasFile('valid_id_path')) {
-                $employerData['valid_id_path'] = $request->file('valid_id_path')->store('employers/validID', 'public');
+                $employerData['valid_id_path'] = app(UploadStorage::class)->store($request->file('valid_id_path'), 'employers/validID');
             }
 
             $employer = Employer::create($employerData);
 
             if ($request->hasFile('certificate_path') && !empty($employerData['employer_certificate_path'])) {
-                AnalyzeVerificationDocument::dispatch($employer, $employerData['employer_certificate_path'], $request->file('certificate_path')->getClientMimeType(), 'certificate');
+                AnalyzeVerificationDocument::dispatch($employer, $employerData['employer_certificate_path'], $request->file('certificate_path')->getMimeType(), 'certificate')->afterCommit();
             }
             if ($request->hasFile('valid_id_path') && !empty($employerData['valid_id_path'])) {
-                AnalyzeVerificationDocument::dispatch($employer, $employerData['valid_id_path'], $request->file('valid_id_path')->getClientMimeType(), 'valid_id');
+                AnalyzeVerificationDocument::dispatch($employer, $employerData['valid_id_path'], $request->file('valid_id_path')->getMimeType(), 'valid_id')->afterCommit();
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -192,7 +197,7 @@ class AuthController extends Controller
                 'message' => 'Employer account created successfully! Please verify your email.',
                 'token' => $token,
                 'user' => $user,
-                'employer_profile' => $employer,
+                'employer_profile' => $employer->withOwnedDocumentLinks(),
                 'profile' => $employer
             ], 201);
         } catch (\Exception $e) {
@@ -217,6 +222,7 @@ class AuthController extends Controller
             'detailed_address' => 'nullable|string',
             'age' => 'nullable|integer',
             'gender' => 'nullable|string',
+            'valid_id_path' => 'nullable|file|mimes:jpeg,png,jpg,pdf,webp,heic,heif,bmp|max:10240',
             ...$locationRules,
         ], [
             'email.unique' => 'This email address is already registered.',
@@ -252,13 +258,13 @@ class AuthController extends Controller
             ];
 
             if ($request->hasFile('valid_id_path')) {
-                $householdData['valid_id_path'] = $request->file('valid_id_path')->store('households/validIDs', 'public');
+                $householdData['valid_id_path'] = app(UploadStorage::class)->store($request->file('valid_id_path'), 'households/validIDs');
             }
 
             $household = Household::create($householdData);
 
             if ($request->hasFile('valid_id_path') && !empty($householdData['valid_id_path'])) {
-                AnalyzeVerificationDocument::dispatch($household, $householdData['valid_id_path'], $request->file('valid_id_path')->getClientMimeType(), 'valid_id');
+                AnalyzeVerificationDocument::dispatch($household, $householdData['valid_id_path'], $request->file('valid_id_path')->getMimeType(), 'valid_id')->afterCommit();
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -270,7 +276,7 @@ class AuthController extends Controller
                 'message' => 'Household account created successfully! Please verify your email.',
                 'token' => $token,
                 'user' => $user,
-                'profile' => $household
+                'profile' => $household->withOwnedDocumentLinks()
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -330,7 +336,7 @@ class AuthController extends Controller
             'message' => 'Login successful!',
             'token' => $token,
             'user' => $user,
-            'profile' => $profile
+            'profile' => $profile?->withOwnedDocumentLinks()
         ], 200);
     }
 
@@ -384,7 +390,7 @@ class AuthController extends Controller
             'message' => 'Google Login successful!',
             'token' => $token,
             'user' => $user,
-            'profile' => $profile
+            'profile' => $profile?->withOwnedDocumentLinks()
         ], 200);
     }
 

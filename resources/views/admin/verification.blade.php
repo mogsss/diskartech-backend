@@ -107,7 +107,7 @@
                                 $isVerified = (bool) $profile?->isVerified;
                                 $reason = $profile?->rejection_reason;
                                 $rowStatus = $isVerified ? 'verified' : (filled($reason) ? 'rejected' : ($isComplete ? 'pending' : 'incomplete'));
-                                $fileUrl = fn ($path) => filled($path) ? asset('storage/'.$path) : '';
+                                $fileUrl = fn ($path) => app(\App\Services\UploadStorage::class)->url($path) ?? '';
                                 $reviewPayload = [
                                     'userId' => $user->id, 'name' => $name, 'role' => ucfirst($user->role), 'roleLower' => $user->role, 'reference' => $reference,
                                     'isValid' => $profile?->ai_is_valid, 'remarks' => $profile?->ai_remarks,
