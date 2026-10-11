@@ -63,11 +63,13 @@ The first command only previews. `--write` uploads available originals and updat
 - Avatars use HTTPS Cloudinary URLs.
 - Protected documents use signed application URLs valid for one hour. The backend fetches the authenticated Cloudinary file and serves its bytes. Cloudinary signatures and API secrets are never included in client document responses.
 - Profile owners and admins receive document links. Hirers receive resume links only for students who applied to their jobs; verification document links are omitted from other users' nested profile JSON.
-- Mobile document previews fetch a fresh profile/application response before opening a file, so cached links do not remain expired. Protected PDFs open directly rather than sending their links to Google Docs Viewer.
+- Mobile document previews fetch a fresh profile/application response before opening a file. **Retry preview** and **Open document** also request a new authorized link, so an expired cached link can be renewed without re-uploading. Protected PDFs open directly rather than sending their links to Google Docs Viewer.
+- Mobile avatars, chat participants and job images share one URL resolver: full Cloudinary URLs retain their query strings, legacy paths receive one `/storage/` prefix, and signed `/media/` paths use the backend root. Raw private Cloudinary references are not public image URLs.
+- Admin messages use current profile avatars from the database instead of stale Firebase chat snapshots. Legacy local avatar paths still resolve through backend storage.
 - Legacy relative paths still work while their local originals exist.
 
 After deployment, upload a profile picture and a PDF document from each account type. Confirm that Cloudinary shows the assets, mobile previews and admin **Open file** work, and the AI check completes. Restart the backend and verify the same Cloudinary uploads remain accessible. Backend delivery still uses Render bandwidth; storage and Cloudinary usage depend on the product environment's plan.
 
-Automated coverage: `php artisan test --filter=CloudinaryUploadsTest`. These tests mock the cloud network; a real upload with your configured credentials still needs the deployment check above.
+Automated coverage: `php artisan test --filter=CloudinaryUploadsTest` covers image/PDF byte delivery, signature restrictions, expired-link renewal, profile/avatar responses for all roles and admin avatar resolution. Run `node scripts/test-media-urls.cjs` in `DISKARTECH` for mobile URL handling. These tests mock the cloud network; a real upload with your configured credentials still needs the deployment check above.
 
 Official references: [PHP SDK](https://cloudinary.com/documentation/php_integration), [authenticated assets](https://cloudinary.com/documentation/control_access_to_media), [PDF delivery settings](https://cloudinary.com/documentation/pdf_optimization).

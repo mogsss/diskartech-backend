@@ -415,11 +415,7 @@ class AuthController extends Controller
 
         if ($profile) {
             $avatar = $profile->avatar ?? $profile->profile_picture ?? null;
-            if ($avatar && !str_starts_with($avatar, 'http')) {
-                $profile->avatar_url = asset('storage/' . $avatar);
-            } else {
-                $profile->avatar_url = $avatar;
-            }
+            $profile->avatar_url = app(\App\Services\UploadStorage::class)->url($avatar);
             $profile->avatar = $profile->avatar ?? $profile->profile_picture;
             $profile->profile_picture = $profile->profile_picture ?? $profile->avatar;
         }
@@ -452,10 +448,7 @@ class AuthController extends Controller
 
         $name = $profile->student_name ?? $profile->household_name ?? $profile->employer_name ?? $user->name ?? 'User';
         $avatar = $profile->avatar ?? $profile->profile_picture ?? null;
-        $avatarUrl = null;
-        if ($avatar) {
-            $avatarUrl = str_starts_with($avatar, 'http') ? $avatar : url('storage/' . $avatar);
-        }
+        $avatarUrl = app(\App\Services\UploadStorage::class)->url($avatar);
 
         // Calculate average rating and review count from official contract reviews
         $reviewQuery = \App\Models\Review::where('reviewee_id', $user->id);
@@ -506,10 +499,7 @@ class AuthController extends Controller
             $profile = $user->householdProfile ?? $user->employerProfile ?? $user->studentProfile;
             $name = $profile->student_name ?? $profile->household_name ?? $profile->employer_name ?? $user->name ?? 'User';
             $avatar = $profile->avatar ?? $profile->profile_picture ?? null;
-            $avatarUrl = null;
-            if ($avatar) {
-                $avatarUrl = str_starts_with($avatar, 'http') ? $avatar : url('storage/' . $avatar);
-            }
+            $avatarUrl = app(\App\Services\UploadStorage::class)->url($avatar);
 
             $statuses[$user->id] = [
                 'isVerified' => (bool) ($profile->isVerified ?? false),

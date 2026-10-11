@@ -75,12 +75,15 @@ class UploadStorage
 
     public function url(?string $path): ?string
     {
-        if (! $path) return null;
+        $path = trim($path ?? '');
+        if ($path === '') return null;
+        if (preg_match('~^https?://~i', $path)) return $path;
+        $path = preg_replace('~^(?:/?storage/)+~', '', $path);
+        $path = ltrim($path, '/');
         if ($this->isDocument($path)) {
             $this->documentId($path);
             return URL::temporarySignedRoute('media.document', now()->addMinutes(config('uploads.document_link_minutes')), ['path' => $path]);
         }
-        if (preg_match('~^https?://~i', $path)) return $path;
         $this->assertSafePath($path);
         return Storage::disk('public')->url($path);
     }

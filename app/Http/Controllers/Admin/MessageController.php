@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Jobs;
 use App\Models\Report;
+use App\Services\UploadStorage;
 use Illuminate\Http\Request;
 
 class MessageController extends Controller
@@ -23,23 +23,22 @@ class MessageController extends Controller
 
                 if ($user->role === 'student' && $user->studentProfile) {
                     $displayName = $user->studentProfile->student_name ?? $user->email;
-                    $avatar = $user->studentProfile->profile_picture;
-                    $phone = $user->studentProfile->phone_number ?? null;
-                    $isVerified = (bool) ($user->studentProfile->is_verified ?? false);
+                    $avatar = $user->studentProfile->avatar ?? $user->studentProfile->profile_picture;
+                    $phone = $user->studentProfile->contact_number;
+                    $isVerified = (bool) $user->studentProfile->isVerified;
                 } elseif ($user->role === 'employer' && $user->employerProfile) {
-                    $displayName = $user->employerProfile->company_name 
-                        ?? $user->employerProfile->employer_name 
+                    $displayName = $user->employerProfile->employer_name
                         ?? $user->email;
-                    $avatar = $user->employerProfile->profile_picture ?? null;
-                    $phone = $user->employerProfile->phone_number ?? null;
-                    $isVerified = (bool) ($user->employerProfile->is_verified ?? false);
+                    $avatar = $user->employerProfile->avatar ?? $user->employerProfile->profile_picture;
+                    $phone = $user->employerProfile->contact_number;
+                    $isVerified = (bool) $user->employerProfile->isVerified;
                 } elseif ($user->role === 'household' && $user->householdProfile) {
                     $displayName = $user->householdProfile->household_name 
                         ?? $user->householdProfile->full_name 
                         ?? $user->email;
-                    $avatar = $user->householdProfile->profile_picture ?? null;
-                    $phone = $user->householdProfile->phone_number ?? null;
-                    $isVerified = (bool) ($user->householdProfile->is_verified ?? false);
+                    $avatar = $user->householdProfile->avatar ?? $user->householdProfile->profile_picture;
+                    $phone = $user->householdProfile->cp_number;
+                    $isVerified = (bool) $user->householdProfile->isVerified;
                 }
 
                 return [
@@ -48,7 +47,7 @@ class MessageController extends Controller
                         'name' => $displayName,
                         'email' => $user->email,
                         'role' => $user->role,
-                        'avatar' => $avatar,
+                        'avatar' => app(UploadStorage::class)->url($avatar),
                         'phone' => $phone,
                         'is_verified' => $isVerified,
                         'status' => $user->status ?? 'active',

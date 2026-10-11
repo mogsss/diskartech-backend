@@ -401,9 +401,15 @@
                             const loadedChats = [];
                             snapshot.forEach((docSnap) => {
                                 const data = docSnap.data();
+                                const directory = window.__DISKARTECH_USERS__ || {};
+                                const student = directory[String(data.student_user_id)];
+                                const owner = directory[String(data.owner_user_id)];
                                 loadedChats.push({
                                     id: docSnap.id,
-                                    ...data
+                                    ...data,
+                                    // Current database avatars take precedence over old chat snapshots.
+                                    student_avatar_url: student ? student.avatar : data.student_avatar_url,
+                                    owner_avatar_url: owner ? owner.avatar : data.owner_avatar_url,
                                 });
                             });
 

@@ -178,6 +178,77 @@ class CloudinaryUploadsTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_private_cloudinary_image_is_delivered_as_image_bytes_and_requires_a_valid_signature(): void
+    {
+        $path = UploadStorage::DOCUMENT_PREFIX.'diskartech/student/school_id/id.png';
+        $this->mock(CloudinaryGateway::class, fn ($mock) => $mock->shouldReceive('documentUrl')->once()
+            ->with('diskartech/student/school_id/id.png')->andReturn('https://res.cloudinary.com/test-cloud/raw/authenticated/s--signed--/id.png'));
+        $contents = base64_decode(self::PNG);
+        Http::fake(['res.cloudinary.com/*' => Http::response($contents, 200)]);
+        $url = app(UploadStorage::class)->url($path);
+        $this->get($url)->assertOk()->assertContent($contents)->assertHeader('Content-Type', 'image/png')
+            ->assertHeader('Content-Disposition', 'inline; filename="id.png"')->assertHeader('Cache-Control', 'no-store, private');
+        $this->get(strtok($url, '?'))->assertForbidden();
+        Http::assertSentCount(1);
+    }
+
+    #[DataProvider('avatarRoles')]
+    public function test_profile_fetch_returns_current_cloudinary_avatar_for_every_role(string $role, string $model): void
+    {
+        Schema::create('reviews', function (Blueprint $table) { $table->id(); $table->unsignedBigInteger('reviewee_id'); $table->integer('rating'); });
+        $avatar = 'https://res.cloudinary.com/test-cloud/image/upload/v123/avatar.png';
+        $model::create(['user_id' => 1, 'avatar' => $avatar]);
+        $this->login($role);
+        $this->getJson('/api/user/profile')->assertOk()->assertJsonPath('profile.avatar', $avatar)->assertJsonPath('profile.avatar_url', $avatar);
+        Http::assertNothingSent();
+    }
+
+    public function test_profile_fetch_renews_expired_private_links_without_reuploading_the_document(): void
+    {
+        Schema::create('reviews', function (Blueprint $table) { $table->id(); $table->unsignedBigInteger('reviewee_id'); $table->integer('rating'); });
+        Student::create(['user_id' => 1, 'coe' => self::DOCUMENT]);
+        $this->login();
+        $first = $this->getJson('/api/user/profile')->assertOk()->json('profile.coe');
+        $this->travel(61)->minutes();
+        $this->get($first)->assertForbidden();
+        $second = $this->getJson('/api/user/profile')->assertOk()->json('profile.coe');
+        $this->assertNotSame($first, $second);
+        $this->mock(CloudinaryGateway::class, fn ($mock) => $mock->shouldReceive('documentUrl')->once()->andReturn('https://res.cloudinary.com/test-cloud/raw/authenticated/s--signed--/example.pdf'));
+        Http::fake(['res.cloudinary.com/*' => Http::response(self::PDF, 200)]);
+        $this->get($second)->assertOk()->assertContent(self::PDF);
+        $this->assertSame(self::DOCUMENT, Student::first()->coe);
+    }
+
+    public function test_missing_cloudinary_images_return_not_found_instead_of_a_successful_preview(): void
+    {
+        $this->mock(CloudinaryGateway::class, fn ($mock) => $mock->shouldReceive('documentUrl')->once()->andReturn('https://res.cloudinary.com/test-cloud/raw/authenticated/s--signed--/example.pdf'));
+        Http::fake(['res.cloudinary.com/*' => Http::response('Not found', 404)]);
+        $this->get(app(UploadStorage::class)->url(self::DOCUMENT))->assertNotFound();
+    }
+
+    public function test_admin_chat_directory_uses_current_cloudinary_and_legacy_avatars(): void
+    {
+        $this->withoutMiddleware(\App\Http\Middleware\EnsureSingleAdminSession::class);
+        $admin = new \App\Models\Admin; $admin->id = 1; $admin->name = 'Test Admin';
+        $this->actingAs($admin, 'admin');
+        Schema::create('reports', function (Blueprint $table) { $table->id(); $table->string('status'); });
+        $cloud = 'https://res.cloudinary.com/test-cloud/image/upload/current.png';
+        foreach (['student', 'employer', 'household'] as $index => $role) {
+            DB::table('users')->insert(['id' => $index + 1, 'email' => $role.'@example.com', 'password' => 'unused', 'role' => $role]);
+        }
+        Student::create(['user_id' => 1, 'student_name' => 'Student', 'avatar' => $cloud, 'isVerified' => true]);
+        Employer::create(['user_id' => 2, 'employer_name' => 'Business', 'avatar' => '/storage/employers/avatar/old.png']);
+        Household::create(['user_id' => 3, 'household_name' => 'Household', 'avatar' => $cloud]);
+        $this->get('/admin/messages')->assertOk()->assertViewHas('users', function ($users) use ($cloud) {
+            $this->assertSame($cloud, $users['1']['avatar']);
+            $this->assertTrue($users['1']['is_verified']);
+            $this->assertSame(app(UploadStorage::class)->url('employers/avatar/old.png'), $users['2']['avatar']);
+            $this->assertSame($cloud, $users['3']['avatar']);
+            return true;
+        });
+        Http::assertNothingSent();
+    }
+
     public function test_local_legacy_documents_remain_available_and_cloud_references_cannot_use_public_storage_route(): void
     {
         Storage::disk('public')->put('old/example.pdf', self::PDF);
