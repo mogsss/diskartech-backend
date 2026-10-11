@@ -149,16 +149,7 @@
                     </tbody>
                 </table>
             </div>
-            @if($jobs->hasPages())
-                <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 px-5 py-4 text-xs text-slate-500" aria-label="Job list pagination">
-                    <p>Showing {{ $jobs->firstItem() ?? 0 }}–{{ $jobs->lastItem() ?? 0 }} of {{ $jobs->total() }}</p>
-                    <div class="flex items-center gap-3">
-                        @if($jobs->onFirstPage())<span class="text-slate-300">Previous</span>@else<a href="{{ $jobs->previousPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold hover:bg-stone-50">Previous</a>@endif
-                        <span>Page {{ $jobs->currentPage() }} of {{ $jobs->lastPage() }}</span>
-                        @if($jobs->hasMorePages())<a href="{{ $jobs->nextPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold hover:bg-stone-50">Next</a>@else<span class="text-slate-300">Next</span>@endif
-                    </div>
-                </nav>
-            @endif
+            @include('admin.partials.list-pagination', ['paginator' => $jobs, 'label' => 'Job list pagination'])
         </section>
 
         <div x-show="open" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6" @click.self="close()">

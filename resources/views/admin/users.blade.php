@@ -72,16 +72,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 px-5 py-4 text-xs text-slate-500">
-                <p>Showing {{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }} of {{ number_format($users->total()) }}</p>
-                @if($users->hasPages())
-                    <nav class="flex flex-wrap items-center gap-3" aria-label="User list pagination">
-                        @if($users->onFirstPage())<span class="text-stone-300">Previous</span>@else<a href="{{ $users->previousPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold hover:bg-stone-50">Previous</a>@endif
-                        <span>Page {{ $users->currentPage() }} of {{ $users->lastPage() }}</span>
-                        @if($users->hasMorePages())<a href="{{ $users->nextPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold hover:bg-stone-50">Next</a>@else<span class="text-stone-300">Next</span>@endif
-                    </nav>
-                @endif
-            </div>
+            @include('admin.partials.list-pagination', ['paginator' => $users, 'label' => 'User list pagination'])
         </section>
         <div x-show="open" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6" @click.self="close()">
             <section x-ref="userDialog" role="dialog" aria-modal="true" aria-labelledby="user-details-title" @keydown.tab="trap($event)" class="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">

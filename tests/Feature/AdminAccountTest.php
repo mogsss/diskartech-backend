@@ -15,7 +15,7 @@ class AdminAccountTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:']);
+        config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array', 'cache.limiter' => 'array']);
         Schema::create('admins', function (Blueprint $table) {
             $table->id(); $table->string('name'); $table->string('email')->unique(); $table->string('password'); $table->rememberToken(); $table->timestamps();
         });
@@ -114,11 +114,47 @@ class AdminAccountTest extends TestCase
         if ($path = getenv('DISKARTECH_ACCOUNT_PASSWORD_ERROR_PREVIEW_PATH')) file_put_contents($path, $response->getContent());
     }
 
+    public function test_live_email_check_normalizes_excludes_current_admin_and_never_changes_accounts(): void
+    {
+        $other = Admin::create(['name' => 'Other', 'email' => 'MixedCase@example.com', 'password' => Hash::make('Other-password1!')]);
+        foreach ([' ADMIN@EXAMPLE.COM ' => true, " \x00New@example.com " => true, 'MIXEDCASE@EXAMPLE.COM' => false] as $email => $available) {
+            $this->postJson('/admin/account/check-email', ['email' => $email, 'id' => $other->id])
+                ->assertOk()->assertJsonPath('available', $available)->assertHeader('Cache-Control', 'no-store, private');
+        }
+        $this->assertSame('admin@example.com', $this->admin->fresh()->email);
+        $this->assertSame('MixedCase@example.com', $other->fresh()->email);
+        $this->from('/admin/account')->patch('/admin/account', ['name' => 'Test Admin', 'email' => 'mixedcase@example.com', 'current_password' => 'Original-password1!'])
+            ->assertSessionHasErrors('email', null, 'profile');
+        $this->assertSame('admin@example.com', $this->admin->fresh()->email);
+    }
+
+    public function test_live_email_check_rejects_invalid_inputs_and_is_throttled(): void
+    {
+        foreach ([null, 'invalid', '<b>bad@example.com</b>', ['email' => 'bad'], str_repeat('a', 250).'@example.com'] as $email) {
+            $this->postJson('/admin/account/check-email', ['email' => $email])->assertUnprocessable()->assertJsonValidationErrors('email');
+        }
+        for ($i = 0; $i < 25; $i++) $this->postJson('/admin/account/check-email', ['email' => 'free@example.com'])->assertOk();
+        $this->postJson('/admin/account/check-email', ['email' => 'free@example.com'])->assertTooManyRequests();
+    }
+
+    public function test_password_rules_match_the_mobile_registration_checklist(): void
+    {
+        foreach (['lowercase1!', 'Uppercase!', 'Uppercase1', 'AB1!', ['unexpected' => 'array']] as $password) {
+            $this->from('/admin/account')->put('/admin/account/password', ['current_password' => 'Original-password1!', 'password' => $password, 'password_confirmation' => $password])
+                ->assertSessionHasErrors('password', null, 'password');
+            $this->assertTrue(Hash::check('Original-password1!', $this->admin->fresh()->password));
+        }
+        $password = 'ABC12345!'; // The mobile checklist does not require a lowercase letter.
+        $this->put('/admin/account/password', ['current_password' => 'Original-password1!', 'password' => $password, 'password_confirmation' => $password])->assertRedirect(route('admin.account'));
+        $this->assertTrue(Hash::check($password, $this->admin->fresh()->password));
+    }
+
     public function test_account_requires_admin_authentication(): void
     {
         auth('admin')->logout();
         $this->get('/admin/account')->assertRedirect(route('login'));
         $this->patch('/admin/account', ['name' => 'Changed'])->assertRedirect(route('login'));
         $this->put('/admin/account/password', [])->assertRedirect(route('login'));
+        $this->postJson('/admin/account/check-email', ['email' => 'free@example.com'])->assertUnauthorized();
     }
 }

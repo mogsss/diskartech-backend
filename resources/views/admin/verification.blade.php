@@ -153,24 +153,7 @@
                 </table>
             </div>
 
-            <div class="flex flex-col gap-4 border-t border-stone-100 px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <p class="text-slate-500">Showing {{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }} of {{ number_format($users->total()) }} accounts</p>
-                @if($users->hasPages())
-                    <nav class="flex flex-wrap items-center gap-2" aria-label="Verification pages">
-                        @if($users->onFirstPage())
-                            <span aria-disabled="true" class="rounded-lg border border-stone-100 px-3 py-2 text-stone-300">Previous</span>
-                        @else
-                            <a rel="prev" href="{{ $users->previousPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold text-slate-600 hover:bg-stone-50">Previous</a>
-                        @endif
-                        <span class="px-1 text-slate-500">Page {{ $users->currentPage() }} of {{ $users->lastPage() }}</span>
-                        @if($users->hasMorePages())
-                            <a rel="next" href="{{ $users->nextPageUrl() }}" class="rounded-lg border border-stone-200 px-3 py-2 font-semibold text-slate-600 hover:bg-stone-50">Next</a>
-                        @else
-                            <span aria-disabled="true" class="rounded-lg border border-stone-100 px-3 py-2 text-stone-300">Next</span>
-                        @endif
-                    </nav>
-                @endif
-            </div>
+            @include('admin.partials.list-pagination', ['paginator' => $users, 'label' => 'Verification pages'])
             @include('admin.partials.verification-modal')
         </section>
     </div>

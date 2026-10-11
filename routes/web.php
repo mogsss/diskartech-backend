@@ -54,6 +54,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/admin/reviews', [ReviewController::class, 'index'])->name('admin.reviews');
     Route::get('/admin/account', [AccountController::class, 'edit'])->name('admin.account');
+    Route::post('/admin/account/check-email', [AccountController::class, 'checkEmail'])->middleware('throttle:30,1')->name('admin.account.check-email');
     Route::patch('/admin/account', [AccountController::class, 'update'])->name('admin.account.update');
     Route::put('/admin/account/password', [AccountController::class, 'updatePassword'])->name('admin.account.password');
 
