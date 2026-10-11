@@ -9,6 +9,8 @@ use App\Http\Controllers\Admin\UserController; //
 use App\Http\Controllers\Admin\JobModerationController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\MessageController;
+use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\AccountController;
 
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -49,6 +51,11 @@ Route::middleware(['auth:admin'])->group(function () {
 
     // Users Route (Nakalipat na sa UserController)
     Route::get('/admin/users', [UserController::class, 'usersIndex'])->name('admin.users');
+
+    Route::get('/admin/reviews', [ReviewController::class, 'index'])->name('admin.reviews');
+    Route::get('/admin/account', [AccountController::class, 'edit'])->name('admin.account');
+    Route::patch('/admin/account', [AccountController::class, 'update'])->name('admin.account.update');
+    Route::put('/admin/account/password', [AccountController::class, 'updatePassword'])->name('admin.account.password');
 
     // Job Moderation Routes
     Route::get('/admin/job-moderation', [JobModerationController::class, 'index'])->name('admin.job-moderation');

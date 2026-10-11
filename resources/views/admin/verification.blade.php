@@ -50,14 +50,16 @@
                     <h2 class="text-base font-bold text-slate-900">Verification queue <span class="ml-2 rounded-lg bg-stone-100 px-2 py-1 text-xs font-semibold text-slate-500">{{ number_format($users->total()) }}</span></h2>
                     <p class="text-xs text-slate-500">{{ number_format($totalAccounts) }} accounts overall</p>
                 </div>
-                <form method="GET" action="{{ route('admin.verification') }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
+                <form method="GET" action="{{ route('admin.verification') }}" x-ref="filtersForm"
+                    x-data="{ searchTimer: null, submitFilters() { clearTimeout(this.searchTimer); this.$refs.filtersForm.requestSubmit(); }, scheduleSearch(event) { clearTimeout(this.searchTimer); if (!event.isComposing) this.searchTimer = setTimeout(() => this.submitFilters(), 600); }, destroy() { clearTimeout(this.searchTimer); } }"
+                    @submit="clearTimeout(searchTimer)" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
                     <div class="sm:col-span-2 lg:col-span-1">
                         <label for="verification-search" class="mb-2 block text-xs font-semibold text-slate-600">Search accounts</label>
-                        <input id="verification-search" type="search" name="search" value="{{ $search }}" maxlength="120" placeholder="Name, email, school, or business" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100">
+                        <input id="verification-search" type="search" name="search" value="{{ $search }}" maxlength="120" @input="scheduleSearch($event)" @compositionend="scheduleSearch($event)" placeholder="Name, email, school, or business" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100">
                     </div>
                     <div>
                         <label for="verification-role" class="mb-2 block text-xs font-semibold text-slate-600">Account type</label>
-                        <select id="verification-role" name="role" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-700 focus:outline-red-700">
+                        <select id="verification-role" name="role" @change="submitFilters()" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-700 focus:outline-red-700">
                             @foreach(['all' => 'All types', 'student' => 'Student', 'employer' => 'Employer', 'household' => 'Household'] as $value => $label)
                                 <option value="{{ $value }}" @selected($role === $value)>{{ $label }}</option>
                             @endforeach
@@ -65,14 +67,14 @@
                     </div>
                     <div>
                         <label for="verification-status" class="mb-2 block text-xs font-semibold text-slate-600">Status</label>
-                        <select id="verification-status" name="status" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-700 focus:outline-red-700">
+                        <select id="verification-status" name="status" @change="submitFilters()" class="min-h-[44px] w-full rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm text-slate-700 focus:outline-red-700">
                             <option value="all" @selected($status === 'all')>All statuses</option>
                             @foreach($states as $value => $state)
                                 <option value="{{ $value }}" @selected($status === $value)>{{ $state['label'] }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <button type="submit" class="min-h-[44px] self-end rounded-xl bg-red-700 px-5 text-sm font-semibold text-white transition hover:bg-red-800">Apply filters</button>
+                    <noscript><button type="submit" class="min-h-[44px] rounded-xl bg-red-700 px-5 text-sm font-semibold text-white">Apply filters</button></noscript>
                 </form>
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <p>Newest registrations first. Summary cards show totals across all account types.</p>

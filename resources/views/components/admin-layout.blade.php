@@ -133,6 +133,14 @@
                             class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs"
                         ></span>
                     </a>
+                    <a href="{{ route('admin.reviews') }}" @click="sidebarOpen = false" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition {{ request()->routeIs('admin.reviews') ? 'bg-red-700 text-white shadow-sm' : 'text-slate-600 hover:bg-stone-100' }}" @if(request()->routeIs('admin.reviews')) aria-current="page" @endif>
+                        <svg class="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3z"/></svg>
+                        <span>Ratings & reviews</span>
+                    </a>
+                    <a href="{{ route('admin.account') }}" @click="sidebarOpen = false" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition {{ request()->routeIs('admin.account*') ? 'bg-red-700 text-white shadow-sm' : 'text-slate-600 hover:bg-stone-100' }}" @if(request()->routeIs('admin.account*')) aria-current="page" @endif>
+                        <svg class="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM5 21v-2a7 7 0 0114 0v2H5z"/></svg>
+                        <span>Account</span>
+                    </a>
                     <a href="{{ route('admin.settings') }}" @click="sidebarOpen = false" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition {{ request()->routeIs('admin.settings') ? 'bg-red-700 text-white shadow-sm' : 'text-slate-600 hover:bg-stone-100' }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
                         <span>Platform settings</span>
@@ -196,6 +204,14 @@
                         x-text="pendingCount" 
                         class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs"
                     ></span>
+                </a>
+                <a href="{{ route('admin.reviews') }}" class="flex items-center space-x-3 px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-xl font-medium text-sm transition {{ request()->routeIs('admin.reviews') ? 'bg-red-700 text-white shadow-sm' : 'text-slate-600 hover:bg-stone-100' }}" @if(request()->routeIs('admin.reviews')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3z"/></svg>
+                    <span class="truncate">Ratings & reviews</span>
+                </a>
+                <a href="{{ route('admin.account') }}" class="flex items-center space-x-3 px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-xl font-medium text-sm transition {{ request()->routeIs('admin.account*') ? 'bg-red-700 text-white shadow-sm' : 'text-slate-600 hover:bg-stone-100' }}" @if(request()->routeIs('admin.account*')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM5 21v-2a7 7 0 0114 0v2H5z"/></svg>
+                    <span class="truncate">Account</span>
                 </a>
                 <a href="{{ route('admin.settings') }}" class="flex items-center space-x-3 px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-xl font-medium text-sm transition {{ request()->routeIs('admin.settings') ? 'bg-red-700 text-white shadow-sm' : 'text-slate-600 hover:bg-stone-100' }}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
@@ -321,9 +337,9 @@
                     </div>
                 </div>
 
-                <div class="w-9 h-9 sm:w-10 sm:h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-xs tracking-wider flex-shrink-0">
-                    SA
-                </div>
+                <a href="{{ route('admin.account') }}" aria-label="Open your admin account" title="{{ auth('admin')->user()?->name ?: 'Admin account' }}" class="w-9 h-9 sm:w-10 sm:h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-xs tracking-wider flex-shrink-0 hover:bg-red-700 transition">
+                    {{ mb_strtoupper(mb_substr(auth('admin')->user()?->name ?: 'Admin', 0, 1)) }}
+                </a>
             </div>
         </header>
 
