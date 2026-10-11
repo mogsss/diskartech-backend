@@ -94,13 +94,14 @@
                 @endforeach
             </div>
 
-            <form x-show="rejecting && applicant.isComplete && !applicant.isVerified" id="verification-reject-form" method="POST" :action="'{{ url('/admin/verification/reject') }}/' + applicant.userId"
-                @submit="if (!confirm('Reject this verification and send the reason to the account owner?')) $event.preventDefault()"
+            <form x-show="rejecting && (applicant.isComplete || applicant.isVerified)" id="verification-reject-form" method="POST" :action="'{{ url('/admin/verification/reject') }}/' + applicant.userId"
+                @submit="if (!confirm(applicant.isVerified ? 'Reject this account and remove its verified status? The reason will be shown to the account owner.' : 'Reject this verification and send the reason to the account owner?')) $event.preventDefault()"
                 class="rounded-xl border border-rose-200 bg-rose-50/50 p-4">
                 @csrf
                 <input type="hidden" name="role" :value="applicant.roleLower">
                 <label for="verification-rejection-reason" class="block text-sm font-semibold text-slate-800">Reason for rejection</label>
                 <p class="mt-1 text-xs leading-5 text-slate-500">Explain what needs to be corrected. This reason will be shown to the account owner.</p>
+                <p x-show="applicant.isVerified" class="mt-2 text-xs font-semibold leading-5 text-rose-700">Rejecting this account will remove its verified status.</p>
                 <textarea id="verification-rejection-reason" x-ref="rejectionReason" name="rejection_reason" rows="3" maxlength="255" required
                     @input="$el.setCustomValidity(/<\/?[a-z][^>]*>|<!--|<!doctype/i.test($el.value) ? 'Use plain text only.' : '')"
                     @blur="$el.value = $el.value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069\ufeff]/g, '').trim()"
@@ -112,12 +113,12 @@
             <p x-show="!applicant.isComplete && !applicant.isVerified" class="mb-3 text-xs leading-5 text-amber-700">Review actions are available once all required documents have been uploaded.</p>
             <div class="flex flex-wrap items-center justify-end gap-2">
                 <button type="button" @click="close()" class="min-h-[44px] rounded-xl border border-stone-200 px-4 text-sm font-semibold text-slate-700 hover:bg-stone-50">Close</button>
-                <template x-if="applicant.isComplete && !applicant.isVerified">
+                <template x-if="applicant.isComplete || applicant.isVerified">
                     <div class="flex flex-wrap gap-2">
                         <button x-show="!rejecting" type="button" @click="rejecting = true; $nextTick(() => requestAnimationFrame(() => { $refs.rejectionReason.value = ''; $refs.rejectionReason.setCustomValidity(''); $refs.rejectionReason.focus(); $refs.rejectionReason.scrollIntoView({ block: 'nearest' }); }))" class="min-h-[44px] rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
                         <button x-show="rejecting" type="button" @click="rejecting = false" class="min-h-[44px] rounded-xl border border-stone-200 px-4 text-sm font-semibold text-slate-600">Back</button>
                         <button x-show="rejecting" type="submit" form="verification-reject-form" class="min-h-[44px] rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800">Confirm rejection</button>
-                        <form x-show="!rejecting" method="POST" :action="'{{ url('/admin/verification/approve') }}/' + applicant.userId" @submit="if (!confirm('Approve this account after reviewing its documents?')) $event.preventDefault()">
+                        <form x-show="!rejecting && !applicant.isVerified" method="POST" :action="'{{ url('/admin/verification/approve') }}/' + applicant.userId" @submit="if (!confirm('Approve this account after reviewing its documents?')) $event.preventDefault()">
                             @csrf
                             <input type="hidden" name="role" :value="applicant.roleLower">
                             <button type="submit" :disabled="!applicant.isComplete" class="min-h-[44px] rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-400">Approve account</button>

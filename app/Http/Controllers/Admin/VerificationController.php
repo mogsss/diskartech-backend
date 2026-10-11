@@ -112,14 +112,16 @@ class VerificationController extends Controller
         }]]);
         [$profile, $documents] = $this->reviewedProfile($request, $id);
         if (!$profile) return back()->with('error', 'Applicant profile not found.');
-        if ((bool) $profile->isVerified) return back()->with('error', 'This account is already verified.');
-        foreach ($documents as $field) {
-            if (blank($profile->$field)) return back()->with('error', 'Upload all required documents before reviewing this account.');
+        // Previously approved accounts can be rejected even if an old document is missing.
+        if (! (bool) $profile->isVerified) {
+            foreach ($documents as $field) {
+                if (blank($profile->$field)) return back()->with('error', 'Upload all required documents before reviewing this account.');
+            }
         }
         $profile->isVerified = false;
         $profile->rejection_reason = $request->input('rejection_reason');
         $profile->save();
-        return back()->with('success', 'Application rejected successfully.');
+        return back()->with('success', 'Verification rejected successfully.');
     }
 
     public function approveVerification(Request $request, $id)

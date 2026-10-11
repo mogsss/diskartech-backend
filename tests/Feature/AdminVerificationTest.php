@@ -182,12 +182,43 @@ class AdminVerificationTest extends TestCase
         $this->assertFalse((bool) DB::table('students')->where('user_id', $id)->value('isVerified'));
     }
 
-    public function test_verified_accounts_are_view_only_and_cannot_be_rejected(): void
+    public function test_verified_accounts_can_be_rejected_with_a_reason_for_every_role(): void
     {
-        $id = $this->account('household', ['isVerified' => true]);
-        $this->post('/admin/verification/reject/'.$id, ['role' => 'household', 'rejection_reason' => 'Changed mind'])
-            ->assertSessionHas('error');
-        $this->assertTrue((bool) DB::table('households')->where('user_id', $id)->value('isVerified'));
+        foreach (['student', 'employer', 'household'] as $role) {
+            $id = $this->account($role, ['isVerified' => true]);
+            $this->from('/admin/verification?status=verified')->post('/admin/verification/reject/'.$id, [
+                'role' => $role, 'rejection_reason' => "  Please replace the unreadable document.\r\nThank you.  ",
+            ])->assertRedirect('/admin/verification?status=verified')->assertSessionHas('success');
+            $this->assertFalse((bool) DB::table($role.'s')->where('user_id', $id)->value('isVerified'));
+            $this->assertSame("Please replace the unreadable document.\nThank you.", DB::table($role.'s')->where('user_id', $id)->value('rejection_reason'));
+            $this->get('/admin/verification?status=rejected&role='.$role)->assertOk()
+                ->assertSee('data-account-id="'.$id.'" data-verification-status="rejected"', false);
+            $this->assertSame(0, $this->get('/admin/verification?status=verified&role='.$role)->viewData('users')->total());
+        }
+    }
+
+    public function test_previously_verified_accounts_with_missing_documents_can_also_be_rejected(): void
+    {
+        foreach (['student' => 'coe', 'employer' => 'employer_certificate_path', 'household' => 'valid_id_path'] as $role => $field) {
+            $id = $this->account($role, ['isVerified' => true, $field => null]);
+            $this->post('/admin/verification/reject/'.$id, ['role' => $role, 'rejection_reason' => 'Please re-upload the missing document.'])
+                ->assertSessionHas('success');
+            $this->assertFalse((bool) DB::table($role.'s')->where('user_id', $id)->value('isVerified'));
+            $this->assertSame('Please re-upload the missing document.', DB::table($role.'s')->where('user_id', $id)->value('rejection_reason'));
+        }
+    }
+
+    public function test_rejecting_verified_accounts_requires_a_valid_reason_and_matching_role(): void
+    {
+        $id = $this->account('employer', ['isVerified' => true]);
+        foreach (['   ', '<b>Invalid ID</b>', '&lt;script&gt;bad&lt;/script&gt;', str_repeat('a', 256)] as $reason) {
+            $this->postJson('/admin/verification/reject/'.$id, ['role' => 'employer', 'rejection_reason' => $reason])
+                ->assertUnprocessable()->assertJsonValidationErrors('rejection_reason');
+        }
+        $this->postJson('/admin/verification/reject/'.$id, ['role' => 'student', 'rejection_reason' => 'Wrong account role'])
+            ->assertUnprocessable();
+        $this->assertTrue((bool) DB::table('employers')->where('user_id', $id)->value('isVerified'));
+        $this->assertNull(DB::table('employers')->where('user_id', $id)->value('rejection_reason'));
     }
 
     public function test_admin_authentication_is_required(): void
@@ -195,5 +226,6 @@ class AdminVerificationTest extends TestCase
         auth('admin')->logout();
         $this->get('/admin/verification')->assertRedirect(route('login'));
         $this->post('/admin/verification/approve/1', ['role' => 'student'])->assertRedirect(route('login'));
+        $this->post('/admin/verification/reject/1', ['role' => 'student', 'rejection_reason' => 'Invalid document'])->assertRedirect(route('login'));
     }
 }
