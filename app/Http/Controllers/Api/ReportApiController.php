@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Report;
+use App\Support\PlainTextInput;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -14,12 +15,24 @@ class ReportApiController extends Controller
      */
     public function store(Request $request)
     {
+        $text = [];
+        foreach (['subject', 'description'] as $field) {
+            if (is_string($request->input($field))) {
+                $text[$field] = PlainTextInput::normalize($request->input($field));
+            }
+        }
+        $request->merge($text);
+        $plainText = function ($attribute, $value, $fail) {
+            if (is_string($value) && PlainTextInput::containsMarkup($value)) {
+                $fail('Please use plain text. HTML tags are not allowed.');
+            }
+        };
         $validator = Validator::make($request->all(), [
-            'reported_user_id' => 'nullable|exists:users,id',
-            'job_id' => 'nullable|exists:available_jobs,id',
+            'reported_user_id' => 'nullable|integer|min:1|exists:users,id',
+            'job_id' => 'nullable|integer|min:1|exists:available_jobs,id',
             'report_type' => 'required|in:scam,abuse,fake_job,underpaid,unsafe,no_show,other',
-            'subject' => 'nullable|string|max:255',
-            'description' => 'required|string|max:2000',
+            'subject' => ['nullable', 'string', 'max:255', $plainText],
+            'description' => ['required', 'string', 'min:1', 'max:2000', $plainText],
         ]);
 
         if ($validator->fails()) {
@@ -29,23 +42,34 @@ class ReportApiController extends Controller
             ], 422);
         }
 
-        // Check if already reported and pending/investigating
-        $alreadyReported = Report::where('reporter_id', $request->user()->id)
-            ->where(function ($q) use ($request) {
+        $subject = $request->input('subject') ?: ucfirst(str_replace('_', ' ', $request->input('report_type')));
+        $openReports = Report::where('reporter_id', $request->user()->id)
+            ->whereIn('status', ['pending', 'investigating']);
+        $hasTarget = $request->filled('job_id') || $request->filled('reported_user_id');
+        if ($hasTarget) {
+            $openReports->where(function ($q) use ($request) {
                 if ($request->filled('job_id')) {
                     $q->where('job_id', $request->input('job_id'));
                 }
                 if ($request->filled('reported_user_id')) {
                     $q->orWhere('reported_user_id', $request->input('reported_user_id'));
                 }
-            })
-            ->whereIn('status', ['pending', 'investigating'])
-            ->exists();
+            });
+        } else {
+            // General concerns have no target IDs. Only an identical open concern is a duplicate.
+            $openReports->whereNull('job_id')->whereNull('reported_user_id')
+                ->where('report_type', $request->input('report_type'))
+                ->where('subject', $subject)
+                ->where('description', $request->input('description'));
+        }
+        $alreadyReported = $openReports->exists();
 
         if ($alreadyReported) {
             return response()->json([
                 'status' => 'already_reported',
-                'message' => 'You have already reported this job or hirer. Our safety team is actively reviewing your submission.',
+                'message' => $hasTarget
+                    ? 'You have already reported this job or hirer. Our safety team is actively reviewing your submission.'
+                    : 'You have already submitted this concern. Our safety team is actively reviewing your submission.',
             ], 200);
         }
 
@@ -54,7 +78,7 @@ class ReportApiController extends Controller
             'reported_user_id' => $request->input('reported_user_id'),
             'job_id' => $request->input('job_id'),
             'report_type' => $request->input('report_type'),
-            'subject' => $request->input('subject') ?: ucfirst(str_replace('_', ' ', $request->input('report_type'))),
+            'subject' => $subject,
             'description' => $request->input('description'),
             'status' => 'pending',
         ]);

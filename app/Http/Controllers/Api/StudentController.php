@@ -7,6 +7,7 @@ use App\Jobs\AnalyzeVerificationDocument;
 use App\Models\JobApplication;
 use App\Models\Jobs;
 use App\Models\Student;
+use App\Support\PlainTextInput;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -45,18 +46,33 @@ class StudentController extends Controller
 
     public function updateAvailability(Request $request)
     {
-        $request->validate([
-            'days' => 'required|array',
-            'time_slot' => 'required|string',
+        $timeSlots = ['Morning (6AM - 12PM)', 'Afternoon (1PM - 5PM)', 'Evening (6PM - 10PM)', 'Whole Day'];
+        if (is_string($request->input('time_slot'))) {
+            $request->merge(['time_slot' => PlainTextInput::normalize($request->input('time_slot'))]);
+        }
+        $validated = $request->validate([
+            'days' => ['required', 'array', 'min:1', 'max:7'],
+            'days.*' => ['required', 'string', 'distinct', 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun'],
+            'time_slot' => ['bail', 'required', 'string', 'max:255', static function (string $attribute, mixed $value, \Closure $fail) use ($timeSlots): void {
+                $slots = array_map('trim', explode('&', $value));
+                if (count($slots) > 2 || count(array_unique($slots)) !== count($slots)
+                    || array_diff($slots, $timeSlots)
+                    || (in_array('Whole Day', $slots, true) && count($slots) !== 1)) {
+                    $fail('Choose up to two valid time slots, or Whole Day on its own.');
+                }
+            }],
         ]);
+
+        $slots = array_map('trim', explode('&', $validated['time_slot']));
+        $schedule = implode(' & ', array_values(array_intersect($timeSlots, $slots)));
 
         $user = $request->user();
         $student = Student::where('user_id', $user->id)->first();
 
         if ($student) {
             $student->update([
-                'available_days' => $request->days,
-                'time_slot' => $request->time_slot,
+                'available_days' => $validated['days'],
+                'time_slot' => $schedule,
             ]);
 
             return response()->json([

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\JobApplication;
 use App\Models\Jobs;
+use App\Support\PlainTextInput;
 
 class EmployerController extends Controller
 {
@@ -120,6 +121,32 @@ class EmployerController extends Controller
 
     public function updateApplicationStatus(Request $request, $applicationId)
     {
+        foreach (['start_date', 'end_date', 'work_schedule', 'agreed_rate', 'special_instructions', 'contract_terms', 'termination_reason', 'interview_location'] as $field) {
+            if (is_string($request->input($field))) {
+                $request->merge([$field => PlainTextInput::normalize($request->input($field))]);
+            }
+        }
+        $plainText = static function (string $attribute, mixed $value, \Closure $fail): void {
+            if (is_string($value) && PlainTextInput::containsMarkup($value)) {
+                $fail('The :attribute must contain plain text without HTML or script tags.');
+            }
+        };
+        $startDateRule = function (string $attribute, mixed $value, \Closure $fail): void {
+            if (!is_string($value) || !$this->parseContractDate($value)) {
+                $fail('The :attribute must be a valid date (YYYY-MM-DD or Month D, YYYY).');
+            }
+        };
+        $endDateRule = function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+            if (in_array($value, ['Until Project Completion', 'Indefinite / Project-based'], true)) return;
+            $end = is_string($value) ? $this->parseContractDate($value) : null;
+            if (!$end) {
+                $fail('The :attribute must be a valid date or a project-based end date.');
+                return;
+            }
+            $startValue = $request->input('start_date');
+            $start = is_string($startValue) ? $this->parseContractDate($startValue) : null;
+            if ($start && $end < $start) $fail('The end date cannot be earlier than the start date.');
+        };
         if (is_string($request->input('interview_time'))) {
             $request->merge(['interview_time' => $this->normalizeInterviewTime($request->input('interview_time'))]);
         }
@@ -128,16 +155,16 @@ class EmployerController extends Controller
             'interview_type' => 'required_if:status,interview|in:walk-in,online',
             'interview_date' => 'required_if:status,interview|nullable|date',
             'interview_time' => 'required_if:status,interview|nullable|date_format:h:i A',
-            'interview_location' => 'required_if:interview_type,walk-in|nullable|string|max:2000',
+            'interview_location' => ['bail', 'required_if:interview_type,walk-in', 'nullable', 'string', 'max:2000', $plainText],
             // Additional fields when hiring is confirmed
-            'start_date' => 'sometimes|nullable|string|max:255',
-            'end_date' => 'sometimes|nullable|string|max:255',
-            'work_schedule' => 'sometimes|nullable|string|max:255',
-            'agreed_rate' => 'sometimes|nullable|string|max:255',
-            'special_instructions' => 'sometimes|nullable|string|max:2000',
-            'contract_terms' => 'sometimes|nullable|string|max:2000',
+            'start_date' => ['bail', 'sometimes', 'required', 'string', 'max:255', $startDateRule],
+            'end_date' => ['bail', 'sometimes', 'nullable', 'string', 'max:255', $endDateRule],
+            'work_schedule' => ['bail', 'sometimes', 'required', 'string', 'max:255', $plainText],
+            'agreed_rate' => ['bail', 'sometimes', 'required', 'string', 'regex:/^\d{1,9}(?:\.\d{1,2})?$/', 'numeric', 'gt:0'],
+            'special_instructions' => ['bail', 'sometimes', 'nullable', 'string', 'max:2000', $plainText],
+            'contract_terms' => ['bail', 'sometimes', 'required', 'string', 'max:2000', $plainText],
             // Field when contract is terminated
-            'termination_reason' => 'sometimes|nullable|string|max:1000',
+            'termination_reason' => ['bail', 'sometimes', 'nullable', 'string', 'max:1000', $plainText],
         ]);
 
         $application = JobApplication::where('id', $applicationId)->first();
@@ -152,6 +179,17 @@ class EmployerController extends Controller
         abort_unless(in_array($request->user()->role, ['employer', 'household'], true)
             && (int) $application->job?->user_id === (int) $request->user()->id,
             403, 'You cannot update this application.');
+
+        if ($request->status === 'accepted') {
+            // Partial API updates must also respect dates already stored on the contract.
+            $start = $this->parseContractDate((string) $request->input('start_date', $application->start_date));
+            $end = $this->parseContractDate((string) $request->input('end_date', $application->end_date));
+            if ($start && $end && $end < $start) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'end_date' => 'The end date cannot be earlier than the start date.',
+                ]);
+            }
+        }
 
         $application->status = $request->status;
         // If the application is being accepted, capture hiring details
@@ -213,6 +251,14 @@ class EmployerController extends Controller
             'message' => 'Application status updated successfully',
             'application' => $application
         ]);
+    }
+    private function parseContractDate(string $value): ?\DateTimeImmutable
+    {
+        foreach (['F j, Y', 'Y-m-d'] as $format) {
+            $date = \DateTimeImmutable::createFromFormat('!'.$format, $value);
+            if ($date && $date->format($format) === $value) return $date;
+        }
+        return null;
     }
     private function normalizeInterviewTime(string $value): string
     {

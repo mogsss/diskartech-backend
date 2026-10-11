@@ -18,6 +18,7 @@ use App\Services\GmailOtpMailer;
 use App\Services\GmailDeliveryException;
 use Carbon\Carbon;
 use App\Jobs\AnalyzeVerificationDocument;
+use App\Support\PinamalayanLocation;
 
 class AuthController extends Controller
 {
@@ -26,6 +27,7 @@ class AuthController extends Controller
     // ==========================================
     public function registerStudent(Request $request)
     {
+        $locationRules = PinamalayanLocation::rules($request);
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string',
             'last_name' => 'required|string',
@@ -39,6 +41,7 @@ class AuthController extends Controller
             'detailed_address' => 'nullable|string',
             'age' => 'nullable|integer',
             'gender' => 'nullable|string',
+            ...$locationRules,
         ], [
             'email.unique' => 'This email address is already registered.',
             'password.min' => 'The password must be at least 8 characters long.',
@@ -118,6 +121,7 @@ class AuthController extends Controller
     // ==========================================
     public function registerEmployer(Request $request)
     {
+        $locationRules = PinamalayanLocation::rules($request);
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string',
             'last_name' => 'required|string',
@@ -128,6 +132,7 @@ class AuthController extends Controller
             'business_type' => 'required|string',
             'address' => 'nullable|string',
             'detailed_address' => 'nullable|string',
+            ...$locationRules,
         ], [
             'email.unique' => 'This email address is already registered.',
             'password.min' => 'The password must be at least 8 characters long.',
@@ -201,6 +206,7 @@ class AuthController extends Controller
     // ==========================================
     public function registerHousehold(Request $request)
     {
+        $locationRules = PinamalayanLocation::rules($request);
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string',
             'last_name' => 'required|string',
@@ -211,6 +217,7 @@ class AuthController extends Controller
             'detailed_address' => 'nullable|string',
             'age' => 'nullable|integer',
             'gender' => 'nullable|string',
+            ...$locationRules,
         ], [
             'email.unique' => 'This email address is already registered.',
             'password.min' => 'The password must be at least 8 characters long.',
@@ -514,6 +521,7 @@ class AuthController extends Controller
 
     public function updateUserProfile(Request $request)
     {
+        $request->validate(PinamalayanLocation::rules($request));
         $user = $request->user();
 
         if ($user->role === 'student') {
