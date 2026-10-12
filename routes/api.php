@@ -21,6 +21,7 @@ Route::get('/user', function (Request $request) {
 // ==========================================
 // Hiwalay na API routes para sa Registration
 // ==========================================
+Route::post('/register/check-email', [AuthController::class, 'checkRegistrationEmail'])->middleware('throttle:15,1,registration-email-check:');
 Route::post('/register/student', [AuthController::class, 'registerStudent']);
 Route::post('/register/employer', [AuthController::class, 'registerEmployer']);
 Route::post('/register/household', [AuthController::class, 'registerHousehold']);

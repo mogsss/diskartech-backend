@@ -22,6 +22,16 @@ use App\Services\UploadStorage;
 
 class AuthController extends Controller
 {
+    public function checkRegistrationEmail(Request $request)
+    {
+        if (is_string($request->input('email'))) $request->merge(['email' => trim($request->input('email'))]);
+        $data = $request->validate(['email' => ['required', 'string', 'email', 'max:254', 'not_regex:/[\x00-\x1F\x7F]/']]);
+        $exists = User::whereRaw('LOWER(email) = ?', [strtolower($data['email'])])->exists();
+
+        // Availability only: never issue a session or expose user/profile details.
+        return response()->json(['status' => 'success', 'exists' => $exists])->header('Cache-Control', 'no-store');
+    }
+
     // ==========================================
     // 1. STUDENT REGISTRATION
     // ==========================================
