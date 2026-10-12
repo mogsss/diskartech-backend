@@ -33,6 +33,9 @@ php artisan migrate --path=database/migrations/2026_10_11_190000_create_sessions
 # Password-change visibility requires the registration method before requests are served.
 php artisan migrate --path=database/migrations/2026_10_12_120000_add_registered_with_google_to_users_table.php --force --no-interaction
 
+# Mobile password recovery needs persistent, single-use reset challenges.
+php artisan migrate --path=database/migrations/2026_10_12_140000_create_mobile_password_resets_table.php --force --no-interaction
+
 # Cache Laravel configurations, routes, and views for maximum performance
 php artisan config:cache || true
 php artisan route:cache || true

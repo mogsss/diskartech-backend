@@ -29,6 +29,11 @@ Route::post('/register/household', [AuthController::class, 'registerHousehold'])
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/google-login', [AuthController::class, 'googleLogin']);
 
+// Account recovery does not require an existing login token.
+Route::post('/password/forgot', [\App\Http\Controllers\Api\PasswordResetController::class, 'sendCode'])->middleware('throttle:10,1,password-reset-send:');
+Route::post('/password/verify-code', [\App\Http\Controllers\Api\PasswordResetController::class, 'verifyCode'])->middleware('throttle:10,1,password-reset-verify:');
+Route::post('/password/reset', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:10,1,password-reset-submit:');
+
 // Mga Routes na nangangailangan ng Sanctum Authentication
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/applications/{id}/interview-call', [\App\Http\Controllers\Api\InterviewCallController::class, 'show'])
