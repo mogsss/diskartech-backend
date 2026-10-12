@@ -16,6 +16,7 @@ class User extends Authenticatable // 👈 Tinanggal na ang implements MustVerif
         'email',
         'password',
         'role',
+        'registered_with_google',
         'isEmailVerified',     
         'otp_code',            
         'otp_expires_at',      
@@ -32,6 +33,7 @@ class User extends Authenticatable // 👈 Tinanggal na ang implements MustVerif
     {
         return [
             'password' => 'hashed',
+            'registered_with_google' => 'boolean',
             'isEmailVerified' => 'boolean',     
             'otp_expires_at' => 'datetime',     
         ];

@@ -1,7 +1,7 @@
 @php
     $reviewDocuments = [
         ['role' => "applicant.roleLower === 'student'", 'title' => 'School ID', 'type' => 'school_id', 'url' => 'schoolIdUrl', 'valid' => 'schoolIdAiIsValid', 'remarks' => 'schoolIdAiRemarks', 'good' => 'Valid School ID', 'bad' => 'Warning / Invalid ID'],
-        ['role' => "applicant.roleLower === 'student'", 'title' => 'COR/COE', 'type' => 'coe', 'subtitle' => 'Certificate of Enrolment / Registration', 'url' => 'coeUrl', 'valid' => 'coeAiIsValid', 'remarks' => 'coeAiRemarks', 'good' => 'Valid COR/COE', 'bad' => 'Warning / Invalid COE'],
+        ['role' => "applicant.roleLower === 'student'", 'title' => 'COR/COE', 'type' => 'coe', 'subtitle' => 'Certificate of Enrolment / Registration', 'url' => 'coeUrl', 'valid' => 'coeAiIsValid', 'remarks' => 'coeAiRemarks', 'good' => 'Valid COE', 'bad' => 'Warning / Invalid COE'],
         ['role' => "applicant.roleLower === 'student'", 'title' => 'Resume', 'url' => 'resumeUrl'],
         ['role' => "applicant.roleLower !== 'student'", 'title' => 'Valid ID', 'type' => 'valid_id', 'url' => 'idUrl', 'valid' => 'isValid', 'remarks' => 'remarks', 'good' => 'Valid ID', 'bad' => 'Warning / Invalid ID'],
         ['role' => "applicant.roleLower === 'employer'", 'title' => 'Business Permit / Certificate', 'type' => 'certificate', 'url' => 'certUrl', 'valid' => 'certIsValid', 'remarks' => 'certRemarks', 'good' => 'Valid Certificate', 'bad' => 'Warning / Invalid Certificate'],

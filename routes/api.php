@@ -61,6 +61,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/users/verification-statuses', [AuthController::class, 'getVerificationStatuses']);
     Route::get('/user/{id}/public-profile', [AuthController::class, 'getPublicUserProfile']);
     Route::post('/user/update-profile', [AuthController::class, 'updateUserProfile']);
+    Route::get('/user/account', [\App\Http\Controllers\Api\AccountController::class, 'show']);
+    Route::put('/user/password', [\App\Http\Controllers\Api\AccountController::class, 'updatePassword'])->middleware('throttle:5,1');
 
     // ==========================================
     // OTP Email Verification Routes (Nasa loob ng Sanctum)

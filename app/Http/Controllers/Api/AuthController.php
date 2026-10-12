@@ -32,6 +32,7 @@ class AuthController extends Controller
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'email' => 'required|string|email|unique:users',
+            'registered_with_google' => 'sometimes|boolean',
             'password' => ['required', 'string', 'min:8', 'regex:/[0-9]/'],
             'phone' => 'required|string',
             'school_name' => 'required|string',
@@ -61,6 +62,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'student',
+                'registered_with_google' => $request->boolean('registered_with_google'),
                 'isEmailVerified' => false,
             ]);
 
@@ -101,7 +103,7 @@ class AuthController extends Controller
                 AnalyzeVerificationDocument::dispatch($student, $studentData['coe'], $request->file('coe_path')->getMimeType(), 'coe')->afterCommit();
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token', ['*', $user->registered_with_google ? 'auth:google' : 'auth:password'])->plainTextToken;
 
             DB::commit();
 
@@ -129,6 +131,7 @@ class AuthController extends Controller
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'email' => 'required|string|email|unique:users',
+            'registered_with_google' => 'sometimes|boolean',
             'password' => ['required', 'string', 'min:8', 'regex:/[0-9]/'],
             'phone' => 'required|string',
             'business_name' => 'required|string',
@@ -154,6 +157,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'employer',
+                'registered_with_google' => $request->boolean('registered_with_google'),
                 'isEmailVerified' => false,
             ]);
 
@@ -188,7 +192,7 @@ class AuthController extends Controller
                 AnalyzeVerificationDocument::dispatch($employer, $employerData['valid_id_path'], $request->file('valid_id_path')->getMimeType(), 'valid_id')->afterCommit();
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token', ['*', $user->registered_with_google ? 'auth:google' : 'auth:password'])->plainTextToken;
 
             DB::commit();
 
@@ -216,6 +220,7 @@ class AuthController extends Controller
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'email' => 'required|string|email|unique:users',
+            'registered_with_google' => 'sometimes|boolean',
             'password' => ['required', 'string', 'min:8', 'regex:/[0-9]/'],
             'phone' => 'required|string',
             'address' => 'nullable|string',
@@ -240,6 +245,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'household',
+                'registered_with_google' => $request->boolean('registered_with_google'),
                 'isEmailVerified' => false,
             ]);
 
@@ -267,7 +273,7 @@ class AuthController extends Controller
                 AnalyzeVerificationDocument::dispatch($household, $householdData['valid_id_path'], $request->file('valid_id_path')->getMimeType(), 'valid_id')->afterCommit();
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token', ['*', $user->registered_with_google ? 'auth:google' : 'auth:password'])->plainTextToken;
 
             DB::commit();
 
@@ -310,7 +316,7 @@ class AuthController extends Controller
 
         // Suriin ang isEmailVerified column
         if (isset($user->isEmailVerified) && !$user->isEmailVerified) {
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token', ['*', 'auth:password'])->plainTextToken;
 
             return response()->json([
                 'status' => 'error',
@@ -329,7 +335,7 @@ class AuthController extends Controller
             $profile = Household::where('user_id', $user->id)->first();
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', ['*', 'auth:password'])->plainTextToken;
 
         return response()->json([
             'status' => 'success',
@@ -358,13 +364,13 @@ class AuthController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => 'not_registered',
-                'message' => 'Wala pang DiskarTech account na naka-link sa Google email na ito. Mangyaring mag-register muna.',
+                'message' => 'No DiskarTech account is linked to this Google email. Please register first.',
             ], 404);
         }
 
         // Suriin kung verified ang email
         if (isset($user->isEmailVerified) && !$user->isEmailVerified) {
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token', ['*', 'auth:google'])->plainTextToken;
 
             return response()->json([
                 'status' => 'error',
@@ -383,7 +389,7 @@ class AuthController extends Controller
             $profile = Household::where('user_id', $user->id)->first();
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', ['*', 'auth:google'])->plainTextToken;
 
         return response()->json([
             'status' => 'success',
