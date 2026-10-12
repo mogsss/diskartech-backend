@@ -68,7 +68,8 @@ class AccountController extends Controller
                 throw ValidationException::withMessages(['password' => 'Choose a different password from your current password.']);
             }
 
-            $user->forceFill(['password' => Hash::make($data['password']), 'remember_token' => null])->save();
+            // Mobile users authenticate with Sanctum; their table has no remember_token column.
+            $user->forceFill(['password' => Hash::make($data['password'])])->save();
             $currentToken = $request->user()->currentAccessToken();
             if ($currentToken instanceof PersonalAccessToken) {
                 $user->tokens()->whereKeyNot($currentToken->getKey())->delete();

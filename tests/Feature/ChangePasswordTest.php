@@ -19,7 +19,7 @@ class ChangePasswordTest extends TestCase
         config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array', 'cache.limiter' => 'array']);
         Schema::create('users', function (Blueprint $table) {
             $table->id(); $table->string('email')->unique(); $table->string('password'); $table->string('role');
-            $table->boolean('isEmailVerified')->default(true); $table->boolean('registered_with_google')->default(false); $table->rememberToken(); $table->timestamps();
+            $table->boolean('isEmailVerified')->default(true); $table->boolean('registered_with_google')->default(false); $table->timestamps();
         });
         Schema::create('personal_access_tokens', function (Blueprint $table) {
             $table->id(); $table->morphs('tokenable'); $table->string('name'); $table->string('token', 64)->unique();
