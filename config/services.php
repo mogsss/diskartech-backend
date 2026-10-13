@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'paymongo' => [
+        'secret_key' => env('PAYMONGO_SECRET_KEY'),
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'payment_methods' => env('PAYMONGO_PAYMENT_METHODS', 'qrph'),
+    ],
     'livekit' => [
         'url' => env('LIVEKIT_URL'),
         'api_key' => env('LIVEKIT_API_KEY'),

@@ -20,6 +20,8 @@ Route::get('/', function () {
 });
 
 // Public Working Student Certificate Viewer & PDF Print Route
+Route::get('/subscription/return', [\App\Http\Controllers\Api\SubscriptionController::class, 'returned'])->name('subscription.return');
+
 Route::get('/certificate/{id}/view', [\App\Http\Controllers\CertificateWebController::class, 'viewCertificate'])->name('certificate.view');
 
 // Authorized chat attachments use short-lived application viewing links.

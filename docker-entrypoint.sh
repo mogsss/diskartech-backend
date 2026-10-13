@@ -40,6 +40,9 @@ php artisan migrate --path=database/migrations/2026_10_12_140000_create_mobile_p
 php artisan migrate --path=database/migrations/2026_10_12_160000_create_chat_attachments_table.php --force --no-interaction
 
 # Cache Laravel configurations, routes, and views for maximum performance
+# Payment ownership and fulfillment must be available before checkout requests.
+php artisan migrate --path=database/migrations/2026_10_13_120000_create_subscription_payments_table.php --force --no-interaction
+
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true

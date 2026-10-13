@@ -36,7 +36,12 @@ Route::post('/password/verify-code', [\App\Http\Controllers\Api\PasswordResetCon
 Route::post('/password/reset', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:10,1,password-reset-submit:');
 
 // Mga Routes na nangangailangan ng Sanctum Authentication
+Route::post('/payments/paymongo/webhook', [\App\Http\Controllers\Api\SubscriptionController::class, 'webhook'])->middleware('throttle:120,1,paymongo-webhook:');
+
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/employer/subscription', [\App\Http\Controllers\Api\SubscriptionController::class, 'show']);
+    Route::post('/employer/subscription/checkout', [\App\Http\Controllers\Api\SubscriptionController::class, 'store'])->middleware('throttle:10,1,subscription-checkout:');
+    Route::post('/employer/subscription/payments/{payment}/verify', [\App\Http\Controllers\Api\SubscriptionController::class, 'verify'])->whereUuid('payment')->middleware('throttle:30,1,subscription-verify:');
     Route::post('/chats/{chatId}/attachments', [\App\Http\Controllers\Api\ChatAttachmentController::class, 'store'])->middleware('throttle:10,1,chat-attachments-upload:');
     Route::get('/chats/{chatId}/attachments/{attachment}', [\App\Http\Controllers\Api\ChatAttachmentController::class, 'show'])->whereUuid('attachment')->middleware('throttle:120,1,chat-attachments-view:');
     Route::get('/applications/{id}/interview-call', [\App\Http\Controllers\Api\InterviewCallController::class, 'show'])
