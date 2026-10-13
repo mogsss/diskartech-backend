@@ -22,6 +22,10 @@ Route::get('/', function () {
 // Public Working Student Certificate Viewer & PDF Print Route
 Route::get('/certificate/{id}/view', [\App\Http\Controllers\CertificateWebController::class, 'viewCertificate'])->name('certificate.view');
 
+// Authorized chat attachments use short-lived application viewing links.
+Route::get('/chat-attachments/{attachment}/view', [\App\Http\Controllers\Api\ChatAttachmentController::class, 'view'])
+    ->whereUuid('attachment')->middleware('signed')->name('chat-attachments.view');
+
 // Fallback direct storage file serving route for uploads and avatars
 Route::get('/media/{path}', [\App\Http\Controllers\MediaController::class, 'document'])
     ->where('path', '.*')->middleware('signed')->name('media.document');

@@ -309,7 +309,7 @@
                                         class="max-w-md px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs"
                                         :class="getMessageBubbleClass(msg)"
                                     >
-                                        <p class="whitespace-pre-wrap" x-text="msg.text || msg.message || ''"></p>
+                                        <p class="whitespace-pre-wrap" x-text="msg.text || msg.message || (msg.attachment?.kind === 'image' ? 'Photo' : msg.attachment?.filename ? 'File: ' + msg.attachment.filename : '')"></p>
                                     </div>
                                 </div>
                             </template>

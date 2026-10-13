@@ -36,6 +36,9 @@ php artisan migrate --path=database/migrations/2026_10_12_120000_add_registered_
 # Mobile password recovery needs persistent, single-use reset challenges.
 php artisan migrate --path=database/migrations/2026_10_12_140000_create_mobile_password_resets_table.php --force --no-interaction
 
+# Chat uploads require attachment ownership records before requests are served.
+php artisan migrate --path=database/migrations/2026_10_12_160000_create_chat_attachments_table.php --force --no-interaction
+
 # Cache Laravel configurations, routes, and views for maximum performance
 php artisan config:cache || true
 php artisan route:cache || true

@@ -37,6 +37,8 @@ Route::post('/password/reset', [\App\Http\Controllers\Api\PasswordResetControlle
 
 // Mga Routes na nangangailangan ng Sanctum Authentication
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/chats/{chatId}/attachments', [\App\Http\Controllers\Api\ChatAttachmentController::class, 'store'])->middleware('throttle:10,1,chat-attachments-upload:');
+    Route::get('/chats/{chatId}/attachments/{attachment}', [\App\Http\Controllers\Api\ChatAttachmentController::class, 'show'])->whereUuid('attachment')->middleware('throttle:120,1,chat-attachments-view:');
     Route::get('/applications/{id}/interview-call', [\App\Http\Controllers\Api\InterviewCallController::class, 'show'])
         ->whereNumber('id');
     Route::post('/applications/{id}/interview-call/end', [\App\Http\Controllers\Api\InterviewCallController::class, 'end'])
