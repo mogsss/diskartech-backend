@@ -27,8 +27,8 @@ Route::post('/register/employer', [AuthController::class, 'registerEmployer']);
 Route::post('/register/household', [AuthController::class, 'registerHousehold']);
 
 // Login Route
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/google-login', [AuthController::class, 'googleLogin']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:mobile-login');
+Route::post('/google-login', [AuthController::class, 'googleLogin'])->middleware('throttle:mobile-google-login');
 
 // Account recovery does not require an existing login token.
 Route::post('/password/forgot', [\App\Http\Controllers\Api\PasswordResetController::class, 'sendCode'])->middleware('throttle:10,1,password-reset-send:');
