@@ -9,9 +9,22 @@ use App\Models\Jobs;
 use App\Support\PlainTextInput;
 use App\Services\UploadStorage;
 use App\Services\EmployerJobQuota;
+use Illuminate\Database\Eloquent\Builder;
 
 class EmployerController extends Controller
 {
+    private function hirerId(Request $request): int
+    {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['employer', 'household'], true), 403, 'Only hirer accounts can manage applicants.');
+        return (int) $user->id;
+    }
+
+    private function applicationsFor(int $userId): Builder
+    {
+        return JobApplication::whereHas('job', fn (Builder $query) => $query->where('user_id', $userId));
+    }
+
     public function addAvatar(Request $request)
     {
         $request->validate([
@@ -55,7 +68,7 @@ class EmployerController extends Controller
     // Ginagamit ito para sa dashboard (kasama na ang applications at student info)
     public function myJobListings(Request $request)
     {
-        $userId = $request->user()->id;
+        $userId = $this->hirerId($request);
 
         $jobs = Jobs::where('user_id', $userId)
             ->with(['applications.student']) // Isinama para makuha ang mga nag-apply
@@ -67,44 +80,43 @@ class EmployerController extends Controller
             'status' => 'success',
             'jobs' => $jobs,
             'job_quota' => app(EmployerJobQuota::class)->usage($request->user()),
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 
-    public function getJobApplicants($jobId)
+    public function getJobApplicants(Request $request, $jobId)
     {
-        $applications = JobApplication::with(['student', 'job'])
-            ->where('job_id', $jobId)
-            ->get();
+        $userId = $this->hirerId($request);
+        $job = Jobs::whereKey($jobId)->where('user_id', $userId)->firstOrFail();
+        $applications = $job->applications()->with(['student', 'job'])->get();
 
         return response()->json([
             'status' => 'success',
             'applicants' => $applications
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 
     public function getAllApplicants(Request $request)
     {
-        $userId = $request->user()->id;
+        $userId = $this->hirerId($request);
 
-        $applications = JobApplication::whereHas('job', function ($query) use ($userId) {
-            $query->where('user_id', $userId);
-        })->with(['student', 'job'])->get();
+        $applications = $this->applicationsFor($userId)->with(['student', 'job'])->get();
 
         return response()->json([
             'status' => 'success',
             'applicants' => $applications
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 
     public function getApplicationDetails(Request $request, $applicationId)
     {
-        $application = JobApplication::with([
+        $userId = $this->hirerId($request);
+        $query = $this->applicationsFor($userId)->with([
             'student', 'job',
             'job.employer:id,user_id,location,detailed_address',
             'job.household:id,user_id,location,detailed_address',
         ])
-            ->where('id', $applicationId)
-            ->first();
+            ->whereKey($applicationId);
+        $application = $query->first();
 
         if (!$application) {
             return response()->json([
@@ -113,14 +125,16 @@ class EmployerController extends Controller
             ], 404);
         }
         if ($application->status === 'pending') {
-            $application->status = 'viewed';
-            $application->save();
+            // Do not overwrite a hiring decision made while the details were loading.
+            $this->applicationsFor($userId)->whereKey($applicationId)->where('status', 'pending')->update(['status' => 'viewed']);
+            $application = $query->first();
+            abort_unless($application, 404, 'Application not found');
         }
 
         return response()->json([
             'status' => 'success',
             'application' => $application
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 
     public function updateApplicationStatus(Request $request, $applicationId)
@@ -280,32 +294,22 @@ class EmployerController extends Controller
         return $value; // Leave invalid values for the existing validation to reject.
     }
 
-    public function deleteApplication($applicationId)
+    public function deleteApplication(Request $request, $applicationId)
     {
-        try {
-            $application = JobApplication::find($applicationId);
-
-            if (!$application) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Application not found'
-                ], 404);
-            }
-
-            // Optional: Pwede mo ring i-check kung ang employer/user ang may-ari ng job
-
-            $application->delete();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Application deleted successfully'
-            ], 200);
-        } catch (\Exception $e) {
+        $userId = $this->hirerId($request);
+        $application = $this->applicationsFor($userId)->whereKey($applicationId)->first();
+        if (!$application) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => 'Application not found'
+            ], 404);
         }
+        $application->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Application deleted successfully'
+        ], 200);
     }
 
     public function postedJobs(Request $request)
