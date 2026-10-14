@@ -2,7 +2,15 @@
 
 The employer profile shows Basic/Premium from the existing `isSubscribed` and `subscription_expires_at` fields. The subscription screen now opens PayMongo Hosted Checkout instead of displaying a simulated success alert. Prices are controlled by Laravel: PHP 149 (14900 centavos) for a calendar month, or PHP 1490 (149000 centavos) for a calendar year. Monthly/yearly dates clamp safely at month ends. Renewal extends an existing paid period; this is a one-time purchase with no automatic recurring charge.
 
-This implementation accepts **test keys and test payments only**. Test purchases update the demo account's Premium state. They do not represent paid live subscriptions. Before going live, implement and review live-mode support, clean up demo entitlements, confirm payment methods/account approval, and define/enforce the plan benefits. Featured listings, posting limits, and priority support are not introduced by this checkout change.
+This implementation accepts **test keys and test payments only**. Test purchases update the demo account's Premium state. They do not represent paid live subscriptions. Before going live, implement and review live-mode support, clean up demo entitlements, and confirm payment methods/account approval. The first Premium benefit is the active job allowance below. Featured listings, repost shortcuts, hiring reports, and priority support are not included.
+
+## Active job allowance
+
+Employer Basic accounts can have **3 active job posts**; an active Premium subscription allows **unlimited active job posts**. Laravel checks the subscription flag and UTC expiry on every create/reopen request. Expired subscriptions immediately use the Basic limit. Existing over-limit posts are retained and can be edited or closed, but new posts/reopens require the count to fall below the Basic limit. Closing/deleting frees a slot; closed/inactive/archived statuses do not count. Moderation-hidden open posts and legacy blank statuses reserve a slot, matching the existing employer jobs screen.
+
+The check applies to `/api/jobs` creation, employer status changes, and admin reopen actions. Existing active/hidden posts can keep their state at or above the limit. Transactions lock the account/profile before counting and writing, serializing competing create/reopen requests on MySQL. Household posting is unchanged. Verification requirements continue to apply to new posts. Client-supplied plan/limit fields cannot increase the allowance.
+
+`GET /api/employer/job-quota` and `/api/employer/jobs` return current usage; subscription responses include `subscription.job_quota`. Premium represents unlimited with `active_job_limit: null` and `remaining_job_slots: null`; `can_post_job` is true while Premium is active. Mobile Jobs, new-job forms, and subscription cards show Unlimited instead of a numeric denominator. A server rejection uses HTTP 422 with `errors.active_job_limit`, including when the plan expires or another device fills the last Basic slot while a form is open. A blocked draft is retained so the employer can close a listing or upgrade, then retry. No additional migration or environment variable is needed for job quotas.
 
 ## Configuration and deployment
 
@@ -45,11 +53,11 @@ Without a configured webhook, payment still confirms when the employer returns t
 Automated tests fake the provider; they do not make real PayMongo requests or charge anything.
 
 ```sh
-php artisan test --compact --filter=EmployerSubscriptionTest
+php artisan test --compact --filter='EmployerSubscriptionTest|EmployerJobQuotaTest'
 ```
 
 ```sh
-node --test scripts/test-employer-subscription.cjs
+node --test scripts/test-employer-subscription.cjs scripts/test-employer-job-quota.cjs
 npx tsc --noEmit
 ```
 

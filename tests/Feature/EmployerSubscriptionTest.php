@@ -25,6 +25,7 @@ class EmployerSubscriptionTest extends TestCase
         config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array', 'cache.limiter' => 'array', 'session.driver' => 'array', 'services.paymongo.secret_key' => 'sk_test_fixture', 'services.paymongo.webhook_secret' => 'webhook-fixture', 'services.paymongo.payment_methods' => 'qrph']);
         (require database_path('migrations/0001_01_01_000000_create_users_table.php'))->up();
         Schema::create('employers', function (Blueprint $table) { $table->id(); $table->unsignedBigInteger('user_id')->unique(); $table->timestamps(); });
+        Schema::create('available_jobs', function (Blueprint $table) { $table->id(); $table->unsignedBigInteger('user_id'); $table->string('status')->default('active'); });
         (require database_path('migrations/2026_10_13_120000_create_subscription_payments_table.php'))->up();
         Http::preventStrayRequests();
         Http::fake(function ($request) {
@@ -100,6 +101,7 @@ class EmployerSubscriptionTest extends TestCase
         Http::assertSentCount(1);
         $this->postJson(self::ROOT.'/checkout', ['billing_cycle' => 'annually', 'request_id' => (string) Str::uuid()])->assertConflict();
         $this->verify($order, $this->providerSession($order))->assertOk()->assertJsonPath('payment.status', 'paid')->assertJsonPath('subscription.plan', 'premium');
+        $this->getJson(self::ROOT)->assertOk()->assertJsonPath('subscription.job_quota.active_job_limit', null)->assertJsonPath('subscription.job_quota.can_post_job', true);
         $expires = Employer::first()->subscription_expires_at;
         $this->assertSame('2026-11-13 10:00:00', $expires);
         $this->postJson(self::ROOT.'/payments/'.$order->id.'/verify')->assertOk();

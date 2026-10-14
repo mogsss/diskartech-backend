@@ -62,6 +62,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Employer Management Routes (Pinag-isa na sa EmployerController)
     Route::post('/employer/add-profile', [EmployerController::class, 'addAvatar']);
     Route::get('/employer/jobs', [EmployerController::class, 'postedJobs']);
+    Route::get('/employer/job-quota', [EmployerController::class, 'jobQuota']);
     Route::get('/employer/jobs/{jobId}/applicants', [EmployerController::class, 'getJobApplicants']);
     Route::patch('/employer/jobs/{jobId}/status', [EmployerController::class, 'updateJobStatus']);
     Route::get('/employer/applicants', [EmployerController::class, 'getAllApplicants']);

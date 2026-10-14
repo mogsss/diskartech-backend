@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\JobApplication;
 use App\Models\Jobs;
+use App\Services\EmployerJobQuota;
 use App\Support\PlainTextInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -127,8 +128,7 @@ class JobModerationController extends Controller
         if (!in_array($job->status, ['active', 'hidden'])) {
             return back()->with('error', 'This job is closed. Use Reopen job to publish it again.');
         }
-        $job->status = $job->status === 'active' ? 'hidden' : 'active';
-        $job->save();
+        $job = app(EmployerJobQuota::class)->changeStatus($job, $job->status === 'active' ? 'hidden' : 'active');
         return back()->with('success', $job->status === 'active' ? "Job '{$job->title}' is now live." : "Job '{$job->title}' has been hidden from students.");
     }
 
@@ -136,7 +136,7 @@ class JobModerationController extends Controller
     {
         $validated = $request->validate(['status' => ['required', 'string', Rule::in(['active', 'hidden', 'closed'])]]);
         $job = Jobs::findOrFail($id);
-        $job->update(['status' => $validated['status']]);
+        $job = app(EmployerJobQuota::class)->changeStatus($job, $validated['status']);
         $label = $job->status === 'active' ? 'live' : $job->status;
         return back()->with('success', "Job '{$job->title}' is now {$label}.");
     }

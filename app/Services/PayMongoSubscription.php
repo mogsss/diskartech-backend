@@ -32,8 +32,9 @@ class PayMongoSubscription
     public function current(Employer $employer): array
     {
         $expires = $employer->subscription_expires_at ? CarbonImmutable::parse($employer->subscription_expires_at, 'UTC') : null;
-        $premium = (bool) $employer->isSubscribed && (!$expires || $expires->isFuture());
-        return ['plan' => $premium ? 'premium' : 'basic', 'expires_at' => $expires?->toIso8601String(), 'test_mode' => true, 'prices' => self::PRICES];
+        $quota = app(EmployerJobQuota::class);
+        return ['plan' => $quota->plan($employer), 'expires_at' => $expires?->toIso8601String(), 'test_mode' => true, 'prices' => self::PRICES,
+            'job_quota' => $quota->usage($employer->user, $employer)];
     }
 
     private function request(string $method, string $path, ?array $data = null, ?string $idempotency = null): array

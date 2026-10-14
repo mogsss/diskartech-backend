@@ -9,6 +9,7 @@ use App\Models\JobPosting;
 use App\Models\Student;
 use App\Models\Household;
 use App\Models\Employer;
+use App\Services\EmployerJobQuota;
 
 class JobController extends Controller
 {
@@ -27,6 +28,7 @@ class JobController extends Controller
         ]);
 
         $user = $request->user();
+        abort_unless(in_array($user->role, ['employer', 'household'], true), 403, 'Only hirer accounts can post jobs.');
         
         $employerLat = null;
         $employerLong = null;
@@ -68,7 +70,7 @@ class JobController extends Controller
         }
 
         // I-save sa database gamit ang bagong columns para sa available_days at time_slot
-        $job = Jobs::create([
+        $job = app(EmployerJobQuota::class)->create($user, [
             'user_id' => $user->id,
             'title' => $request->title,
             'description' => $request->description,

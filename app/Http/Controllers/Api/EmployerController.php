@@ -8,6 +8,7 @@ use App\Models\JobApplication;
 use App\Models\Jobs;
 use App\Support\PlainTextInput;
 use App\Services\UploadStorage;
+use App\Services\EmployerJobQuota;
 
 class EmployerController extends Controller
 {
@@ -64,7 +65,8 @@ class EmployerController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'jobs' => $jobs
+            'jobs' => $jobs,
+            'job_quota' => app(EmployerJobQuota::class)->usage($request->user()),
         ]);
     }
 
@@ -311,6 +313,12 @@ class EmployerController extends Controller
         return $this->myJobListings($request);
     }
 
+    public function jobQuota(Request $request)
+    {
+        abort_unless(in_array($request->user()->role, ['employer', 'household'], true), 403);
+        return response()->json(['job_quota' => app(EmployerJobQuota::class)->usage($request->user())])->header('Cache-Control', 'no-store, private');
+    }
+
     public function updateJobStatus(Request $request, $jobId)
     {
         $request->validate([
@@ -327,8 +335,7 @@ class EmployerController extends Controller
             ], 404);
         }
 
-        $job->status = strtolower($request->status);
-        $job->save();
+        $job = app(EmployerJobQuota::class)->changeStatus($job, strtolower($request->status));
 
         return response()->json([
             'status' => 'success',
