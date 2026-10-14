@@ -51,6 +51,21 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(10)->by('ip:'.hash('sha256', (string) $request->ip()))->response($retryResponse)
         );
 
+        // One allowance across avatar/document routes, devices and tokens for this account.
+        RateLimiter::for('profile-uploads', static fn (Request $request) =>
+            Limit::perMinute(5)->by('user:'.$request->user()->getAuthIdentifier())
+                ->response(static function (Request $request, array $headers) {
+                    $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+
+                    return response()->json([
+                        'status' => 'error',
+                        'code' => 'upload_rate_limited',
+                        'message' => "Too many uploads. Please try again in {$seconds} seconds.",
+                        'retry_after' => $seconds,
+                    ], 429, $headers)->header('Cache-Control', 'no-store, private');
+                })
+        );
+
         if (config('app.env') === 'production' || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
             URL::forceScheme('https');
         }

@@ -60,7 +60,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/jobs/{id}', [JobController::class, 'destroy']);
 
     // Employer Management Routes (Pinag-isa na sa EmployerController)
-    Route::post('/employer/add-profile', [EmployerController::class, 'addAvatar']);
+    Route::post('/employer/add-profile', [EmployerController::class, 'addAvatar'])->middleware('throttle:profile-uploads');
     Route::get('/employer/jobs', [EmployerController::class, 'postedJobs']);
     Route::get('/employer/job-quota', [EmployerController::class, 'jobQuota']);
     Route::get('/employer/jobs/{jobId}/applicants', [EmployerController::class, 'getJobApplicants']);
@@ -89,7 +89,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/student/update-push-token', [StudentController::class, 'updatePushToken']);
     Route::post('/student/update-availability', [StudentController::class, 'updateAvailability']);
     Route::post('/student/update-skills', [StudentController::class, 'updateSkills']);
-    Route::post('/student/upload-doc', [StudentController::class, 'uploadStudentDoc']);
+    Route::post('/student/upload-doc', [StudentController::class, 'uploadStudentDoc'])->middleware('throttle:profile-uploads');
     Route::get('/student/nearby-jobs', [JobMatchingController::class, 'getNearbyJobs']);
     Route::get('/student/all-jobs', [StudentController::class, 'getAllJobs']);
     Route::get('/student/applications', [StudentController::class, 'myApplications']);
@@ -122,5 +122,5 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Verification Document Upload
-    Route::post('/upload-verification-doc', [VerificationController::class, 'uploadVerificationDoc']);
+    Route::post('/upload-verification-doc', [VerificationController::class, 'uploadVerificationDoc'])->middleware('throttle:profile-uploads');
 });
