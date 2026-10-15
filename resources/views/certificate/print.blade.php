@@ -10,9 +10,14 @@
 <body class="flex flex-col items-center bg-slate-50 px-[15px] py-[30px] font-['Plus_Jakarta_Sans',sans-serif] text-slate-800 print:bg-white print:p-0">
 
     <div class="mb-5 flex w-full max-w-[820px] flex-wrap items-center justify-between gap-3 print:hidden">
-        <a href="javascript:window.close()" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 text-sm font-bold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 bg-slate-200 text-slate-700 hover:bg-slate-300 focus-visible:outline-slate-700">&larr; Back</a>
+        <a href="javascript:window.close()" class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 px-5 py-2.5 text-sm font-bold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 bg-slate-200 text-slate-700 hover:bg-slate-300 focus-visible:outline-slate-700">
+            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="m12 19-7-7 7-7M5 12h14" />
+            </svg>
+            <span class="leading-none">Back</span>
+        </a>
         <button type="button" onclick="window.print()" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 text-sm font-bold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 bg-red-600 text-white shadow-[0_4px_12px_rgba(220,38,38,0.25)] hover:bg-red-700 focus-visible:outline-red-700">
-            🖨️ Download / Save as PDF
+            Save as PDF
         </button>
     </div>
 
@@ -27,7 +32,7 @@
             </div>
 
             <div class="mb-[30px] break-words text-justify text-[14.5px] leading-[1.85] text-slate-700">
-                This is to certify that <span class="inline-block max-w-full break-words text-[22px] font-extrabold text-slate-900 underline decoration-red-600 underline-offset-4">{{ $data['student_name'] }}</span>, a bonafide student of <span class="font-bold text-slate-900">{{ $data['student_school'] }}</span> taking up <span class="font-bold text-slate-900">{{ $data['student_course'] }}</span>, is officially recognized as an active and registered working student under <span class="font-bold text-slate-900">{{ $data['company_name'] }}</span> via the <strong>DiskarTech Working Student Marketplace Platform</strong>.
+                This is to certify that <span class="inline-block max-w-full break-words text-[22px] font-extrabold text-slate-900 underline decoration-red-600 underline-offset-4">{{ $data['student_name'] }}</span>, a bonafide student of <span class="font-bold text-slate-900">{{ $data['student_school'] }}</span> taking up <span class="font-bold text-slate-900">{{ $data['student_course'] }}</span>, is officially recognized as an active and registered working student under <span class="font-bold text-slate-900">{{ $data['company_name'] }}</span> via the <strong>DiskarTech Job Matching Platform</strong>.
                 <br><br>
                 The said individual has rendered diligent work services in the capacity of <span class="font-bold text-slate-900">{{ $data['job_title'] }}</span> ({{ $data['job_category'] }}) from <span class="font-bold text-slate-900">{{ $data['start_date'] }}</span> to <span class="font-bold text-slate-900">{{ $data['end_date'] }}</span>.
             </div>
@@ -71,14 +76,13 @@
 
 
                 <div class="min-w-0 flex-1 break-words text-center sm:min-w-[200px] print:min-w-0">
-                    <div class="-mb-2.5 font-['Great_Vibes',cursive] text-[32px] text-red-600">DiskarTech Admin</div>
+                    <div class="-mb-2.5 font-['Great_Vibes',cursive] text-[32px] text-red-600">DiskarTech</div>
                     <div class="text-[11px] font-semibold text-slate-500">Platform Verification Seal</div>
-                    <div class="mt-[3px] text-[10px] text-slate-400">Status: Verified Active</div>
                 </div>
             </div>
 
             <div class="mt-[30px] break-words text-center text-[10px] tracking-[0.5px] text-slate-400">
-                Reference ID: {{ $data['certificate_number'] }} • Electronically Generated via DiskarTech System
+                Reference ID: {{ $data['certificate_number'] }} • Electronically Generated via DiskarTech
             </div>
         </div>
     </div>
