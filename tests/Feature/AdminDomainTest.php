@@ -72,6 +72,18 @@ class AdminDomainTest extends TestCase
         $this->get('https://admin.diskartech.world/admin/not-a-page')->assertNotFound();
     }
 
+    public function test_admin_domain_login_aliases_share_throttling(): void
+    {
+        $invalid = ['email' => 'admin@example.com', 'password' => ['invalid']];
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('https://admin.diskartech.world'.($i % 2 ? '/login' : '/admin/login'), $invalid)
+                ->assertUnprocessable();
+        }
+        $this->post('https://admin.diskartech.world/admin/login', $invalid)
+            ->assertStatus(429)->assertViewIs('admin.auth.login')
+            ->assertSee('action="https://admin.diskartech.world/admin/login"', false);
+    }
+
     public function test_admin_write_requests_are_not_available_on_public_or_render_hosts(): void
     {
         foreach (['diskartech.world', 'diskartech-backend.onrender.com'] as $host) {

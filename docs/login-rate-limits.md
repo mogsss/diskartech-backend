@@ -25,7 +25,9 @@ Deploy the backend changes to Render. Use the existing persistent cache store
 array cache cannot enforce limits across production requests; a local file
 cache does not share counters between instances. No new migration, secret,
 package, or native build is required. The mobile change needs the updated JS
-bundle. Admin web login, registration and other APIs are outside this change.
+bundle. Admin web login has its own limiter documented in
+[admin-login-rate-limits.md](admin-login-rate-limits.md). Registration and other
+APIs are outside this change.
 
 Verification: `php artisan test --compact --filter=LoginRateLimitTest` uses
 isolated SQLite and an array cache, with no provider requests. It covers token

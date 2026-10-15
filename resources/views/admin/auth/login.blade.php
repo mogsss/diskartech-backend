@@ -28,9 +28,9 @@
         <h2 class="text-xl font-bold text-slate-900 mb-2">Sign in to console</h2>
         <p class="text-xs text-slate-500 mb-6">Ilagay ang iyong admin credentials para makapasok.</p>
         
-        @if($errors->any())
-            <div class="mb-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs p-3 rounded-xl font-medium">
-                {{ $errors->first() }}
+        @if(isset($loginThrottleMessage) || $errors->any())
+            <div role="alert" class="mb-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs p-3 rounded-xl font-medium">
+                {{ $loginThrottleMessage ?? $errors->first() }}
             </div>
         @endif
 
@@ -38,7 +38,7 @@
             @csrf
             <div>
                 <label class="block text-slate-700 text-xs font-semibold mb-1.5">Email address</label>
-                <input type="email" name="email" value="{{ old('email') }}" maxlength="255" autocomplete="username" required placeholder="admin@diskartech.com" class="w-full bg-[#F2EDE4]/50 border border-stone-200 text-xs rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-800 placeholder-slate-400 transition">
+                <input type="email" name="email" value="{{ $loginEmail ?? old('email') }}" maxlength="255" autocomplete="username" required placeholder="admin@diskartech.com" class="w-full bg-[#F2EDE4]/50 border border-stone-200 text-xs rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-red-600 text-slate-800 placeholder-slate-400 transition">
             </div>
 
             <div>

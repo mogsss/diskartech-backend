@@ -2,11 +2,12 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\URL;
+use App\Support\PlainTextInput;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -47,23 +48,46 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        RateLimiter::for('mobile-google-login', static fn (Request $request) =>
-            Limit::perMinute(10)->by('ip:'.hash('sha256', (string) $request->ip()))->response($retryResponse)
+        RateLimiter::for('mobile-google-login', static fn (Request $request) => Limit::perMinute(10)->by('ip:'.hash('sha256', (string) $request->ip()))->response($retryResponse)
         );
 
-        // One allowance across avatar/document routes, devices and tokens for this account.
-        RateLimiter::for('profile-uploads', static fn (Request $request) =>
-            Limit::perMinute(5)->by('user:'.$request->user()->getAuthIdentifier())
-                ->response(static function (Request $request, array $headers) {
-                    $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+        $adminRetryResponse = static function (Request $request, array $headers) use ($retryResponse) {
+            if ($request->expectsJson()) {
+                return $retryResponse($request, $headers);
+            }
 
-                    return response()->json([
-                        'status' => 'error',
-                        'code' => 'upload_rate_limited',
-                        'message' => "Too many uploads. Please try again in {$seconds} seconds.",
-                        'retry_after' => $seconds,
-                    ], 429, $headers)->header('Cache-Control', 'no-store, private');
-                })
+            $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+
+            return response()->view('admin.auth.login', [
+                'loginThrottleMessage' => "Too many sign-in attempts. Please try again in {$seconds} seconds.",
+                'loginEmail' => is_string($request->input('email')) ? $request->input('email') : '',
+            ], 429, $headers)->header('Cache-Control', 'no-store, private');
+        };
+
+        // Shared by both admin login aliases; separate from mobile login counters.
+        RateLimiter::for('admin-login', static function (Request $request) use ($adminRetryResponse) {
+            $ip = (string) $request->ip();
+            $email = $request->input('email');
+            $email = is_string($email) ? mb_strtolower(PlainTextInput::normalize($email)) : '';
+
+            return [
+                Limit::perMinute(30)->by('ip:'.hash('sha256', $ip))->response($adminRetryResponse),
+                Limit::perMinute(5)->by('email-ip:'.hash('sha256', $email.'|'.$ip))->response($adminRetryResponse),
+            ];
+        });
+
+        // One allowance across avatar/document routes, devices and tokens for this account.
+        RateLimiter::for('profile-uploads', static fn (Request $request) => Limit::perMinute(5)->by('user:'.$request->user()->getAuthIdentifier())
+            ->response(static function (Request $request, array $headers) {
+                $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'upload_rate_limited',
+                    'message' => "Too many uploads. Please try again in {$seconds} seconds.",
+                    'retry_after' => $seconds,
+                ], 429, $headers)->header('Cache-Control', 'no-store, private');
+            })
         );
 
         if (config('app.env') === 'production' || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
