@@ -24,7 +24,7 @@
     <div class="relative w-full max-w-[820px] overflow-hidden rounded-[20px] border-2 border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:px-[55px] sm:py-[50px] print:max-w-none print:rounded-none print:border-0 print:p-5 print:shadow-none">
         <div aria-hidden="true" class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[25deg] select-none whitespace-nowrap text-[80px] font-black tracking-[12px] text-red-600/[0.03]">DISKARTECH VERIFIED</div>
         
-        <div class="relative rounded-[14px] border-[3px] border-double border-red-600 px-5 py-7 sm:px-10 sm:py-[35px] print:border-2 print:px-8 print:py-7">
+        <div class="relative px-5 py-7 sm:px-10 sm:py-[35px] print:px-8 print:py-7">
             <div class="mb-[30px] text-center">
                 <div class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-[1.5px] text-red-600">Official DiskarTech Working Student Certification</div>
                 <h1 class="mb-1.5 font-['Cinzel',serif] text-[22px] font-black uppercase tracking-[2px] text-slate-900 sm:text-[26px] print:text-[26px]">Certificate of Employment</h1>
