@@ -3,75 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DiskarTech | Student & Worker Gigs Platform</title>
+    <title>DiskarTech | Local work. Your kind of schedule.</title>
+    <meta name="description" content="Discover local work in Pinamalayan with DiskarTech. Explore nearby jobs, AI recommendations based on your skills and schedule, and opportunities from employers and household hirers.">
+    <meta name="theme-color" content="#FDFBF7">
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
-    <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-[#FDFBF7] text-slate-800 font-sans min-h-screen flex flex-col justify-between">
+<body class="min-h-screen bg-[#FDFBF7] font-sans text-slate-900 antialiased selection:bg-red-100 selection:text-red-900">
+    <a href="#main-content" class="sr-only rounded-xl bg-white px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50">Skip to content</a>
 
-    <!-- Navigation Bar -->
-    <header class="max-w-7xl w-full mx-auto px-8 py-6 flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-            <img src="{{ asset('logo.png') }}" alt="DiskarTech Logo" class="w-10 h-10 rounded-2xl shadow-sm object-cover">
-            <h1 class="font-bold text-slate-900 text-lg">DiskarTech</h1>
-        </div>
-        <div class="flex items-center space-x-4">
-            <a href="{{ route('admin.login') }}" class="text-xs font-semibold text-slate-600 hover:text-red-700 transition">Admin Portal</a>
-            <a href="#download" class="bg-red-700 hover:bg-red-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition">Download App</a>
+    <header class="border-b border-stone-200/70">
+        <div class="mx-auto flex min-h-[88px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
+            <a href="#" aria-label="DiskarTech home" class="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">
+                <img src="{{ asset('logo.png') }}" alt="" width="38" height="38" class="h-[38px] w-[38px] rounded-xl object-cover">
+                <span class="text-lg font-bold tracking-tight">DiskarTech<span class="text-red-700">.</span></span>
+            </a>
+            <nav class="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex" aria-label="Main navigation">
+                <a href="#features" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Features</a>
+                <a href="#how-it-works" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">How it works</a>
+                <a href="#for-hirers" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">For hirers</a>
+            </nav>
+            <a href="#download" class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 sm:px-5 sm:text-sm">Get the app <x-landing-icon name="arrow" class="h-4 w-4" /></a>
         </div>
     </header>
 
-    <!-- Hero Section -->
-    <main class="max-w-7xl w-full mx-auto px-8 py-12 grid grid-cols-1 md:grid-cols-2 gap-12 items-center my-auto">
-        <div>
-            <span class="bg-red-50 text-red-700 text-xs font-semibold px-3 py-1 rounded-lg">Pinamalayan, Oriental Mindoro</span>
-            <h2 class="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mt-4 leading-tight">
-                Hanapbuhay para sa mga estudyante at manggagawa.
-            </h2>
-            <p class="text-slate-600 text-sm mt-4 leading-relaxed">
-                Subaybayan ang mga part-time gigs, weekend shifts, at mga ligtas na oportunidad na tugma sa iyong oras sa klase. Ginawa para sa mga taga-Mindoro.
-            </p>
-            <div class="mt-8 flex items-center space-x-4">
-                <a href="#download" class="bg-red-700 hover:bg-red-800 text-white font-semibold text-xs px-6 py-3 rounded-xl shadow-sm transition">
-                    Kunin ang App
-                </a>
-                <a href="{{ route('admin.login') }}" class="bg-[#F2EDE4] hover:bg-stone-200 text-slate-700 font-semibold text-xs px-6 py-3 rounded-xl transition">
-                    Admin Sign In
-                </a>
+    <main id="main-content">
+        <section class="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-14 pt-12 sm:px-8 sm:py-20 lg:grid-cols-[1.08fr_1fr] lg:gap-10 lg:px-10 lg:py-20" aria-labelledby="hero-title">
+            <div class="min-w-0">
+                <div class="mb-7 inline-flex max-w-full items-center gap-2 rounded-full border border-stone-200 bg-white/70 px-3.5 py-2 text-[11px] font-medium text-slate-600 sm:text-xs">
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-red-700"></span>
+                    Built for Pinamalayan, Oriental Mindoro
+                </div>
+                <h1 id="hero-title" class="text-[clamp(2.5rem,5.5vw,4.7rem)] font-bold leading-[1.05] tracking-[-0.055em]">
+                    Your skills.<br>Your schedule.<br><span class="text-red-700">Your next move.</span>
+                </h1>
+                <p class="mt-6 max-w-[450px] text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">Find local work that fits your student life. Connect with employers and household hirers, and make room for what matters.</p>
+                <div class="mt-8 flex flex-wrap items-center gap-3">
+                    <a href="#features" class="inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-red-700 px-6 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">Explore DiskarTech <x-landing-icon name="arrow" class="h-4 w-4" /></a>
+                    <a href="#how-it-works" class="inline-flex min-h-12 items-center justify-center rounded-full border border-stone-300 px-6 text-sm font-semibold transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900">How it works</a>
+                </div>
+                <p class="mt-4 flex items-center gap-2 text-xs text-slate-500"><x-landing-icon name="android" class="h-4 w-4" /> Android app &middot; Coming soon</p>
+                <div class="mt-9 flex flex-wrap gap-x-5 gap-y-3 border-t border-stone-200 pt-6 text-xs font-medium text-slate-600">
+                    <span class="inline-flex items-center gap-1.5"><x-landing-icon name="sparkles" class="h-4 w-4 text-red-700" /> AI recommendations</span>
+                    <span class="inline-flex items-center gap-1.5"><x-landing-icon name="location" class="h-4 w-4 text-red-700" /> Nearby opportunities</span>
+                    <span class="inline-flex items-center gap-1.5"><x-landing-icon name="calendar" class="h-4 w-4 text-red-700" /> Your availability</span>
+                </div>
             </div>
-        </div>
 
-        <!-- Hero Card / Illustration mockup -->
-        <div class="bg-white p-8 rounded-3xl border border-stone-200/80 shadow-sm relative overflow-hidden">
-            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-red-50 rounded-full blur-2xl"></div>
-            <div class="flex items-center space-x-3 mb-6">
-                <div class="w-12 h-12 bg-red-600 text-white rounded-2xl flex items-center justify-center font-bold text-xl">D</div>
+            <figure class="min-w-0">
+                <div class="relative flex min-h-[560px] items-center justify-center overflow-hidden rounded-[32px] bg-[#EEEAE3] px-4 py-10 sm:min-h-[600px] sm:rounded-[40px]" aria-hidden="true">
+                    <div class="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80"></div>
+                    <div class="absolute left-1/2 top-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E7E1D7]"></div>
+                    <span class="absolute left-6 top-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-500">Opportunity, closer.</span>
+
+                    <div class="relative z-10 w-[272px] max-w-full -rotate-3 rounded-[42px] border-[7px] border-slate-900 bg-slate-900 p-1 shadow-[12px_24px_45px_-16px_rgba(15,23,42,0.4)] sm:w-[286px]">
+                        <div class="overflow-hidden rounded-[30px] bg-[#111827] px-3.5 pb-3 pt-2 text-white">
+                            <div class="mx-auto mb-4 h-1 w-16 rounded-full bg-slate-700"></div>
+                            <div class="mb-5 flex items-center justify-between"><x-landing-icon name="menu" class="h-4 w-4 text-slate-300" /><span class="text-sm font-bold tracking-tight">DiskarTech<span class="text-red-500">.</span></span><x-landing-icon name="bell" class="h-4 w-4 text-slate-300" /></div>
+                            <p class="text-[20px] font-bold leading-6 tracking-tight">Find work that fits<br>your schedule.</p>
+                            <p class="mt-1.5 text-[9px] leading-4 text-slate-400">Your next opportunity could be around the corner.</p>
+                            <div class="my-4 flex gap-1.5 text-[9px] font-medium"><span class="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300">All jobs</span><span class="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300">Nearby</span><span class="flex items-center gap-1 rounded-full bg-red-700 px-3 py-1.5"><x-landing-icon name="sparkles" class="h-2.5 w-2.5" /> For You</span></div>
+                            <div class="mb-2 flex items-center justify-between"><span class="text-[11px] font-semibold">Recommended for you</span><span class="text-[8px] text-slate-400">AI powered</span></div>
+                            <div class="rounded-2xl border border-slate-700 bg-slate-800 p-3.5">
+                                <div class="flex items-start gap-2.5"><div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E9D6BE] text-[11px] font-bold text-[#694B35]">MC</div><div class="min-w-0 flex-1"><p class="text-[12px] font-semibold leading-4">Weekend Café Assistant</p><p class="mt-1 text-[9px] text-slate-400">Mindoro Coffee House</p></div><x-landing-icon name="bookmark" class="h-4 w-4 text-slate-400" /></div>
+                                <div class="mt-3 flex flex-wrap gap-1.5 text-[8px]"><span class="rounded-md bg-amber-400/10 px-2 py-1 font-semibold text-amber-300">Featured</span><span class="rounded-md bg-slate-700/60 px-2 py-1 text-slate-300">Food Service</span></div>
+                                <p class="mb-3 mt-3 text-xl font-bold">₱450 <span class="text-[10px] font-normal text-slate-400">/ day</span></p>
+                                <p class="flex items-center gap-1.5 text-[9px] text-slate-300"><x-landing-icon name="location" class="h-3 w-3 text-slate-400" /> Pinamalayan &middot; 1.2 km away</p>
+                                <p class="mt-2 flex items-center gap-1.5 text-[9px] text-slate-300"><x-landing-icon name="clock" class="h-3 w-3 text-slate-400" /> Sat, Sun &middot; Morning</p>
+                                <div class="mt-3 flex gap-1.5 text-[8px] text-slate-400"><span class="rounded-md border border-slate-600 px-2 py-1">Customer service</span><span class="rounded-md border border-slate-600 px-2 py-1">Teamwork</span></div>
+                                <div class="mt-3 flex items-center justify-end border-t border-slate-700 pt-2.5 text-[9px] font-semibold text-red-400">View job <x-landing-icon name="arrow" class="ml-1 h-3 w-3" /></div>
+                            </div>
+                            <div class="mt-3 flex items-center justify-around border-t border-slate-800 pt-3 text-slate-500"><x-landing-icon name="home" class="h-4 w-4 text-red-500" /><x-landing-icon name="briefcase" class="h-4 w-4" /><x-landing-icon name="message" class="h-4 w-4" /><x-landing-icon name="user" class="h-4 w-4" /></div>
+                            <div class="mx-auto mt-3 h-1 w-20 rounded-full bg-slate-600"></div>
+                        </div>
+                    </div>
+                    <div class="absolute bottom-12 right-4 z-20 hidden max-w-[190px] items-center gap-3 rounded-2xl border border-stone-200/80 bg-white px-4 py-3 shadow-lg lg:flex">
+                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-700"><x-landing-icon name="sparkles" class="h-5 w-5" /></span>
+                        <div><p class="text-xs font-semibold">Skills + schedule</p><p class="mt-1 text-[10px] text-slate-500">The basis of your AI matches.</p></div>
+                    </div>
+                </div>
+                <figcaption class="mt-3 text-center text-[11px] text-stone-500">Illustrative app preview &middot; Sample job details</figcaption>
+            </figure>
+        </section>
+
+        <section id="features" class="scroll-mt-8 border-y border-stone-200/70 bg-white/60" aria-labelledby="features-title">
+            <div class="mx-auto max-w-7xl px-5 py-14 sm:px-8 sm:py-20 lg:px-10">
+                <div class="mb-9 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+                    <div><p class="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-700">Built around your day</p><h2 id="features-title" class="max-w-lg text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Less searching.<br>More possibilities.</h2></div>
+                    <p class="max-w-sm text-sm leading-7 text-slate-500">From finding a nearby role to starting a conversation, take your next step with more context.</p>
+                </div>
+                @php
+                    $features = [
+                        ['icon' => 'sparkles', 'label' => '01 / FOR YOU', 'title' => 'Your skills. Your schedule.', 'body' => 'AI job recommendations consider your skills, available days, and preferred time slots to help you discover opportunities.'],
+                        ['icon' => 'location', 'label' => '02 / NEARBY', 'title' => 'Keep opportunity close.', 'body' => 'Explore jobs near your profile location and see their distance, so you can factor the commute into your day.'],
+                        ['icon' => 'shield', 'label' => '03 / VERIFICATION', 'title' => 'Know who you connect with.', 'body' => 'See profile details and verification badges. Document checks are assisted by AI, with final account approval by admins.'],
+                    ];
+                @endphp
+                <div class="grid gap-4 md:grid-cols-3">
+                    @foreach($features as $feature)
+                        <article class="rounded-3xl border border-stone-200/80 bg-white p-6 sm:p-7">
+                            <div class="mb-8 flex items-center justify-between gap-3"><span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5F0E9] text-slate-700"><x-landing-icon :name="$feature['icon']" class="h-5 w-5" /></span><span class="text-[9px] font-semibold tracking-[0.12em] text-stone-500">{{ $feature['label'] }}</span></div>
+                            <h3 class="text-lg font-bold leading-7 tracking-tight">{{ $feature['title'] }}</h3>
+                            <p class="mt-3 text-sm leading-7 text-slate-500">{{ $feature['body'] }}</p>
+                        </article>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="mx-auto max-w-7xl scroll-mt-8 px-5 py-14 sm:px-8 sm:py-20 lg:px-10" aria-labelledby="steps-title">
+            <div class="mb-10 text-center"><p class="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-700">For working students</p><h2 id="steps-title" class="text-3xl font-bold tracking-tight sm:text-4xl">A small step. A new opportunity.</h2></div>
+            @php
+                $steps = [
+                    ['title' => 'Make it yours.', 'body' => 'Build your profile. Add your skills and the days and times you are available.'],
+                    ['title' => 'Find your fit.', 'body' => 'Explore All jobs, browse Nearby, or discover AI recommendations in For You.'],
+                    ['title' => 'Start a conversation.', 'body' => 'Apply for a role, message the hirer, and keep track of interviews and application updates.'],
+                ];
+            @endphp
+            <ol class="grid gap-8 md:grid-cols-3 md:gap-10">
+                @foreach($steps as $step)
+                    <li class="flex items-start gap-4 md:block"><span class="mb-4 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-300 text-xs font-semibold text-slate-500">0{{ $loop->iteration }}</span><div><h3 class="text-lg font-bold">{{ $step['title'] }}</h3><p class="mt-2 max-w-sm text-sm leading-7 text-slate-500">{{ $step['body'] }}</p></div></li>
+                @endforeach
+            </ol>
+        </section>
+
+        <section id="for-hirers" class="mx-auto max-w-7xl scroll-mt-8 px-5 pb-14 sm:px-8 sm:pb-20 lg:px-10" aria-labelledby="hirers-title">
+            <div class="grid gap-10 rounded-[32px] bg-[#EEEAE3] p-6 sm:p-10 lg:grid-cols-2 lg:gap-16 lg:p-12">
                 <div>
-                    <h4 class="font-bold text-slate-900">DiskarTech Mobile</h4>
-                    <p class="text-xs text-slate-500">Class-safe match system active</p>
+                    <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">For employers &amp; household hirers</p>
+                    <h2 id="hirers-title" class="max-w-md text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Good help starts with<br>a good connection.</h2>
+                    <p class="mt-5 max-w-md text-sm leading-7 text-slate-600">From a weekend shift at your business to a helping hand at home, connect with students in your community.</p>
+                    <a href="#download" class="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full text-sm font-semibold text-red-800 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">Meet your next working student <x-landing-icon name="arrow" class="h-4 w-4" /></a>
+                </div>
+                <div class="min-w-0">
+                    @foreach([['briefcase', 'Post an opportunity', 'Set the role, requirements, schedule, and compensation.'], ['user', 'Get to know applicants', 'Review student profiles and resumes, then arrange an interview.'], ['message', 'Keep everything connected', 'Coordinate through chat, manage contracts, and issue employment certificates.']] as [$icon, $title, $description])
+                        <div class="flex items-start gap-4 {{ !$loop->last ? 'mb-5' : '' }}"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/70 text-slate-700"><x-landing-icon :name="$icon" class="h-5 w-5" /></span><div class="min-w-0"><h3 class="text-sm font-bold">{{ $title }}</h3><p class="mt-1 text-xs leading-6 text-slate-600">{{ $description }}</p></div></div>
+                    @endforeach
+                </div>
+                <div class="flex flex-col gap-3 border-t border-stone-300/70 pt-5 text-xs leading-6 lg:col-span-2 sm:flex-row sm:items-start"><span class="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-white/80 px-3 py-1 text-[10px] font-bold text-red-800"><x-landing-icon name="sparkles" class="h-3.5 w-3.5" /> PRO EMPLOYERS</span><p class="text-slate-600">Added visibility for your opportunities. Active jobs from employers on Pro are included in For You with a Featured badge.</p></div>
+            </div>
+        </section>
+
+        <section id="download" class="mx-auto max-w-7xl scroll-mt-8 px-5 pb-14 sm:px-8 sm:pb-20 lg:px-10" aria-labelledby="download-title">
+            <div class="relative overflow-hidden rounded-[32px] bg-slate-900 px-6 py-12 text-center text-white sm:px-12 sm:py-16">
+                <div aria-hidden="true" class="pointer-events-none absolute -left-28 -top-24 h-80 w-80 rounded-full border border-white/5"></div>
+                <div aria-hidden="true" class="pointer-events-none absolute -bottom-48 -right-16 h-96 w-96 rounded-full border border-white/5"></div>
+                <div class="relative">
+                    <span class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-1.5 text-[11px] text-slate-300"><span class="h-1.5 w-1.5 rounded-full bg-red-400"></span> Coming soon for Android</span>
+                    <h2 id="download-title" class="text-3xl font-bold leading-tight tracking-tight sm:text-5xl">Your next move<br>starts here.</h2>
+                    <p class="mx-auto mt-5 max-w-md text-sm leading-7 text-slate-400">DiskarTech is getting ready for Android. Come back here for the download link when the app is released.</p>
+                    <button type="button" disabled aria-disabled="true" class="mt-7 inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-2.5 rounded-full border border-white/15 bg-white/10 px-6 text-sm font-semibold text-slate-300"><x-landing-icon name="android" class="h-5 w-5" /> Download coming soon</button>
+                    <p class="mt-5 text-xs text-slate-400">For students. For hirers. For our community.</p>
                 </div>
             </div>
-            <div class="space-y-3 text-xs">
-                <div class="p-3 bg-stone-50 rounded-xl border border-stone-100 flex justify-between items-center">
-                    <span class="font-medium text-slate-700">Weekend Barista Assistant</span>
-                    <span class="text-emerald-600 font-bold">₱450/day</span>
-                </div>
-                <div class="p-3 bg-stone-50 rounded-xl border border-stone-100 flex justify-between items-center">
-                    <span class="font-medium text-slate-700">Math Tutor (Grade 7)</span>
-                    <span class="text-emerald-600 font-bold">₱200/hr</span>
-                </div>
-            </div>
-        </div>
+        </section>
     </main>
 
-    <!-- Footer -->
-    <footer class="max-w-7xl w-full mx-auto px-8 py-6 border-t border-stone-200/60 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500">
-        <p>© 2026 DiskarTech Capstone Project. All rights reserved.</p>
-        <p class="mt-2 sm:mt-0">Pinamalayan, Oriental Mindoro</p>
+    <footer class="border-t border-stone-200/70">
+        <div class="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
+            <div><a href="#" class="text-base font-bold tracking-tight">DiskarTech<span class="text-red-700">.</span></a><p class="mt-2 text-xs leading-6 text-slate-500">Local work. Your kind of schedule.<br>Pinamalayan, Oriental Mindoro</p></div>
+            <div class="flex flex-wrap gap-x-5 gap-y-3 text-xs font-medium text-slate-600"><a href="#features" class="hover:text-red-700">Features</a><a href="#how-it-works" class="hover:text-red-700">How it works</a><a href="{{ route('admin.login') }}" class="hover:text-red-700">Admin portal</a></div>
+            <p class="text-[11px] text-stone-500">&copy; {{ now()->year }} DiskarTech &middot; Capstone Project</p>
+        </div>
     </footer>
-
 </body>
 </html>
