@@ -5,320 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Certificate of Employment - {{ $data['student_name'] }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-            background: #F8FAFC;
-            color: #1E293B;
-            padding: 30px 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .action-bar {
-            width: 100%;
-            max-width: 820px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            border: none;
-        }
-        .btn-primary {
-            background: #DC2626;
-            color: #FFFFFF;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
-        }
-        .btn-primary:hover {
-            background: #B91C1C;
-        }
-        .cert-card {
-            width: 100%;
-            max-width: 820px;
-            background: #FFFFFF;
-            border: 2px solid #E2E8F0;
-            border-radius: 20px;
-            padding: 50px 55px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
-            position: relative;
-            overflow: hidden;
-        }
-        .cert-border-outer {
-            border: 3px double #DC2626;
-            padding: 35px 40px;
-            border-radius: 14px;
-            position: relative;
-        }
-        .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-25deg);
-            font-size: 80px;
-            font-weight: 900;
-            color: rgba(220, 38, 38, 0.03);
-            letter-spacing: 12px;
-            pointer-events: none;
-            white-space: nowrap;
-            user-select: none;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .app-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #FEF2F2;
-            color: #DC2626;
-            padding: 4px 14px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            border: 1px solid #FEE2E2;
-            margin-bottom: 12px;
-        }
-        .cert-title {
-            font-family: 'Cinzel', serif;
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: 2px;
-            color: #0F172A;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-        .cert-subtitle {
-            font-size: 13px;
-            font-weight: 600;
-            color: #64748B;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
-        .cert-body {
-            font-size: 14.5px;
-            line-height: 1.85;
-            color: #334155;
-            text-align: justify;
-            margin-bottom: 30px;
-        }
-        .student-name {
-            font-size: 22px;
-            font-weight: 800;
-            color: #0F172A;
-            text-decoration: underline;
-            text-underline-offset: 4px;
-            text-decoration-color: #DC2626;
-            display: inline-block;
-        }
-        .highlight {
-            font-weight: 700;
-            color: #0F172A;
-        }
-        .details-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 14px;
-            padding: 18px 24px;
-            margin: 25px 0 35px;
-        }
-        .detail-item {
-            display: flex;
-            flex-direction: column;
-        }
-        .detail-label {
-            font-size: 10.5px;
-            font-weight: 700;
-            color: #64748B;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 2px;
-        }
-        .detail-value {
-            font-size: 13.5px;
-            font-weight: 700;
-            color: #0F172A;
-        }
-        .signatures {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-top: 40px;
-            padding-top: 20px;
-        }
-        .signature-box {
-            text-align: center;
-            min-width: 200px;
-        }
-        .handwritten-sign {
-            font-family: 'Great Vibes', cursive;
-            font-size: 32px;
-            color: #0F172A;
-            margin-bottom: -10px;
-        }
-        .signature-line {
-            border-top: 1.5px solid #0F172A;
-            padding-top: 6px;
-            font-size: 13px;
-            font-weight: 700;
-            color: #0F172A;
-        }
-        .signature-role {
-            font-size: 11px;
-            color: #64748B;
-            font-weight: 600;
-        }
-        .seal-box {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .seal-stamp {
-            width: 75px;
-            height: 75px;
-            border-radius: 50%;
-            border: 2px dashed #DC2626;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #DC2626;
-            font-size: 9px;
-            font-weight: 800;
-            text-transform: uppercase;
-            text-align: center;
-            transform: rotate(-10deg);
-            background: #FEF2F2;
-        }
-        .footer-note {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 10px;
-            color: #94A3B8;
-            letter-spacing: 0.5px;
-        }
-        @media print {
-            body {
-                background: #FFFFFF;
-                padding: 0;
-            }
-            .action-bar {
-                display: none !important;
-            }
-            .cert-card {
-                border: none;
-                box-shadow: none;
-                padding: 20px;
-                max-width: 100%;
-            }
-            .cert-border-outer {
-                border-width: 2px;
-            }
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="flex flex-col items-center bg-slate-50 px-[15px] py-[30px] font-['Plus_Jakarta_Sans',sans-serif] text-slate-800 print:bg-white print:p-0">
 
-    <div class="action-bar">
-        <a href="javascript:window.close()" class="btn" style="background: #E2E8F0; color: #334155;">&larr; Back</a>
-        <button onclick="window.print()" class="btn btn-primary">
+    <div class="mb-5 flex w-full max-w-[820px] flex-wrap items-center justify-between gap-3 print:hidden">
+        <a href="javascript:window.close()" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 text-sm font-bold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 bg-slate-200 text-slate-700 hover:bg-slate-300 focus-visible:outline-slate-700">&larr; Back</a>
+        <button type="button" onclick="window.print()" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 text-sm font-bold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 bg-red-600 text-white shadow-[0_4px_12px_rgba(220,38,38,0.25)] hover:bg-red-700 focus-visible:outline-red-700">
             🖨️ Download / Save as PDF
         </button>
     </div>
 
-    <div class="cert-card">
-        <div class="watermark">DISKARTECH VERIFIED</div>
+    <div class="relative w-full max-w-[820px] overflow-hidden rounded-[20px] border-2 border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:px-[55px] sm:py-[50px] print:max-w-none print:rounded-none print:border-0 print:p-5 print:shadow-none">
+        <div aria-hidden="true" class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[25deg] select-none whitespace-nowrap text-[80px] font-black tracking-[12px] text-red-600/[0.03]">DISKARTECH VERIFIED</div>
         
-        <div class="cert-border-outer">
-            <div class="header">
-                <div class="app-badge">Official DiskarTech Working Student Certification</div>
-                <h1 class="cert-title">Certificate of Employment</h1>
-                <p class="cert-subtitle">Working Student Engagement Verification</p>
+        <div class="relative rounded-[14px] border-[3px] border-double border-red-600 px-5 py-7 sm:px-10 sm:py-[35px] print:border-2 print:px-8 print:py-7">
+            <div class="mb-[30px] text-center">
+                <div class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-[1.5px] text-red-600">Official DiskarTech Working Student Certification</div>
+                <h1 class="mb-1.5 font-['Cinzel',serif] text-[22px] font-black uppercase tracking-[2px] text-slate-900 sm:text-[26px] print:text-[26px]">Certificate of Employment</h1>
+                <p class="text-[13px] font-semibold uppercase tracking-[1.5px] text-slate-500">Working Student Engagement Verification</p>
             </div>
 
-            <div class="cert-body">
-                This is to certify that <span class="student-name">{{ $data['student_name'] }}</span>, a bonafide student of <span class="highlight">{{ $data['student_school'] }}</span> taking up <span class="highlight">{{ $data['student_course'] }}</span>, is officially recognized as an active and registered working student under <span class="highlight">{{ $data['company_name'] }}</span> via the <strong>DiskarTech Working Student Marketplace Platform</strong>.
+            <div class="mb-[30px] break-words text-justify text-[14.5px] leading-[1.85] text-slate-700">
+                This is to certify that <span class="inline-block max-w-full break-words text-[22px] font-extrabold text-slate-900 underline decoration-red-600 underline-offset-4">{{ $data['student_name'] }}</span>, a bonafide student of <span class="font-bold text-slate-900">{{ $data['student_school'] }}</span> taking up <span class="font-bold text-slate-900">{{ $data['student_course'] }}</span>, is officially recognized as an active and registered working student under <span class="font-bold text-slate-900">{{ $data['company_name'] }}</span> via the <strong>DiskarTech Working Student Marketplace Platform</strong>.
                 <br><br>
-                The said individual has rendered diligent work services in the capacity of <span class="highlight">{{ $data['job_title'] }}</span> ({{ $data['job_category'] }}) from <span class="highlight">{{ $data['start_date'] }}</span> to <span class="highlight">{{ $data['end_date'] }}</span>.
+                The said individual has rendered diligent work services in the capacity of <span class="font-bold text-slate-900">{{ $data['job_title'] }}</span> ({{ $data['job_category'] }}) from <span class="font-bold text-slate-900">{{ $data['start_date'] }}</span> to <span class="font-bold text-slate-900">{{ $data['end_date'] }}</span>.
             </div>
 
-            <div class="details-grid">
-                <div class="detail-item">
-                    <span class="detail-label">Working Schedule</span>
-                    <span class="detail-value">{{ $data['work_schedule'] }}</span>
+            <div class="mb-[35px] mt-[25px] grid break-inside-avoid grid-cols-1 gap-[15px] rounded-[14px] border border-slate-200 bg-slate-50 px-5 py-[18px] sm:grid-cols-2 sm:px-6 print:grid-cols-2 print:px-6">
+                <div class="flex min-w-0 flex-col">
+                    <span class="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.8px] text-slate-500">Working Schedule</span>
+                    <span class="break-words text-[13.5px] font-bold text-slate-900">{{ $data['work_schedule'] }}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Agreed Compensation</span>
-                    <span class="detail-value">{{ $data['agreed_rate'] }}</span>
+                <div class="flex min-w-0 flex-col">
+                    <span class="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.8px] text-slate-500">Agreed Compensation</span>
+                    <span class="break-words text-[13.5px] font-bold text-slate-900">{{ $data['agreed_rate'] }}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Workplace / Office Address</span>
-                    <span class="detail-value">{{ $data['company_address'] }}</span>
+                <div class="flex min-w-0 flex-col">
+                    <span class="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.8px] text-slate-500">Workplace</span>
+                    <span class="break-words text-[13.5px] font-bold text-slate-900">{{ $data['company_address'] }}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Certificate Reference No.</span>
-                    <span class="detail-value" style="color: #DC2626;">{{ $data['certificate_number'] }}</span>
+                <div class="flex min-w-0 flex-col">
+                    <span class="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.8px] text-slate-500">Certificate Reference No.</span>
+                    <span class="break-words text-[13.5px] font-bold text-red-600">{{ $data['certificate_number'] }}</span>
                 </div>
             </div>
 
-            <div style="font-size: 13.5px; color: #475569; line-height: 1.7; margin-bottom: 25px;">
-                This certification is issued upon the request of the interested party for academic verification, scholarship requirements, school endorsement, or other lawful purposes it may serve.
+            <div class="mb-[25px] text-[13.5px] leading-[1.7] text-slate-600">
+                This certification is issued upon the request of the interested party for academic verification, scholarship requirements, or school endorsement.
             </div>
 
-            <div class="signatures">
-                <div class="signature-box">
+            <div class="mt-10 flex break-inside-avoid flex-col items-stretch justify-between gap-8 pt-5 sm:flex-row sm:items-end sm:gap-5 print:flex-row print:items-end print:gap-5">
+                <div class="min-w-0 flex-1 break-words text-center sm:min-w-[200px] print:min-w-0">
                     @if(!empty($data['employer_signature']))
-                        <div style="height: 48px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 4px;">
-                            <img src="{{ $data['employer_signature'] }}" alt="Digitally Signed" style="max-height: 48px; max-width: 170px; object-fit: contain;" />
+                        <div class="mb-1 flex h-12 items-end justify-center">
+                            <img src="{{ $data['employer_signature'] }}" alt="Digitally Signed" class="max-h-12 max-w-[170px] object-contain" />
                         </div>
                     @else
-                        <div class="handwritten-sign">{{ $data['hirer_name'] }}</div>
+                        <div class="-mb-2.5 font-['Great_Vibes',cursive] text-[32px] text-slate-900">{{ $data['hirer_name'] }}</div>
                     @endif
-                    <div class="signature-line">{{ $data['hirer_name'] }}</div>
-                    <div class="signature-role">Employer</div>
-                    <div style="font-size: 10px; color: #94A3B8; margin-top: 3px;">Date: {{ $data['issued_date'] }}</div>
+                    <div class="border-t-[1.5px] border-slate-900 pt-1.5 text-[13px] font-bold text-slate-900">{{ $data['hirer_name'] }}</div>
+                    <div class="text-[11px] font-semibold text-slate-500">Employer</div>
+                    <div class="mt-[3px] text-[10px] text-slate-400">Date: {{ $data['issued_date'] }}</div>
                 </div>
 
-                <div class="seal-box">
-                    <div class="seal-stamp">
-                        <span>DISKARTECH</span>
-                        <span style="font-size: 7.5px; margin: 2px 0;">OFFICIALLY</span>
-                        <span>VERIFIED</span>
-                    </div>
-                </div>
 
-                <div class="signature-box">
-                    <div class="handwritten-sign" style="color: #DC2626;">DiskarTech Admin</div>
-                    <div class="signature-line">DISKARTECH ACADEMIC LIASON</div>
-                    <div class="signature-role">Platform Verification Seal</div>
-                    <div style="font-size: 10px; color: #94A3B8; margin-top: 3px;">Status: Verified Active</div>
+                <div class="min-w-0 flex-1 break-words text-center sm:min-w-[200px] print:min-w-0">
+                    <div class="-mb-2.5 font-['Great_Vibes',cursive] text-[32px] text-red-600">DiskarTech Admin</div>
+                    <div class="text-[11px] font-semibold text-slate-500">Platform Verification Seal</div>
+                    <div class="mt-[3px] text-[10px] text-slate-400">Status: Verified Active</div>
                 </div>
             </div>
 
-            <div class="footer-note">
+            <div class="mt-[30px] break-words text-center text-[10px] tracking-[0.5px] text-slate-400">
                 Reference ID: {{ $data['certificate_number'] }} • Electronically Generated via DiskarTech System
             </div>
         </div>
