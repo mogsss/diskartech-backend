@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login | DiskarTech</title>
+    <title>DiskarTech</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
@@ -34,7 +34,7 @@
             </div>
         @endif
 
-        <form action="{{ route('login') }}" method="POST" class="space-y-4">
+        <form action="{{ route('admin.login.submit') }}" method="POST" class="space-y-4">
             @csrf
             <div>
                 <label class="block text-slate-700 text-xs font-semibold mb-1.5">Email address</label>
@@ -52,7 +52,7 @@
         </form>
 
         <div class="mt-6 text-center">
-            <a href="{{ url('/') }}" class="text-xs text-slate-500 hover:text-red-700 font-medium transition">← Bumalik sa landing page</a>
+            <a href="{{ config('admin.domain') ? config('app.url') : url('/') }}" class="text-xs text-slate-500 hover:text-red-700 font-medium transition">← Bumalik sa landing page</a>
         </div>
     </div>
 

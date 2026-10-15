@@ -1,3 +1,6 @@
+@php
+    $downloadUrl = 'https://expo.dev/accounts/mogsssss/projects/DiskarTech/builds/0f263222-ee8c-4791-9968-fa4a2fa16c7d';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,23 +12,26 @@
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-[#FDFBF7] font-sans text-slate-900 antialiased selection:bg-red-100 selection:text-red-900">
+<body class="min-h-screen bg-[#FDFBF7] font-['Poppins',sans-serif] text-slate-900 antialiased selection:bg-red-100 selection:text-red-900">
     <a href="#main-content" class="sr-only rounded-xl bg-white px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50">Skip to content</a>
 
     <header class="border-b border-stone-200/70">
         <div class="mx-auto flex min-h-[88px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
             <a href="#" aria-label="DiskarTech home" class="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">
                 <img src="{{ asset('logo.png') }}" alt="" width="38" height="38" class="h-[38px] w-[38px] rounded-xl object-cover">
-                <span class="text-lg font-bold tracking-tight">DiskarTech<span class="text-red-700">.</span></span>
+                <span class="text-base font-bold tracking-tight sm:text-lg">DiskarTech<span class="text-red-700">.</span></span>
             </a>
             <nav class="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex" aria-label="Main navigation">
                 <a href="#features" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Features</a>
                 <a href="#how-it-works" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">How it works</a>
                 <a href="#for-hirers" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">For hirers</a>
             </nav>
-            <a href="#download" class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 sm:px-5 sm:text-sm">Get the app <x-landing-icon name="arrow" class="h-4 w-4" /></a>
+            <a href="{{ $downloadUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 sm:px-5 sm:text-sm">Get the app <span class="sr-only">(opens in a new tab)</span><x-landing-icon name="arrow" class="hidden h-4 w-4 sm:block" /></a>
         </div>
     </header>
 
@@ -34,9 +40,9 @@
             <div class="min-w-0">
                 <div class="mb-7 inline-flex max-w-full items-center gap-2 rounded-full border border-stone-200 bg-white/70 px-3.5 py-2 text-[11px] font-medium text-slate-600 sm:text-xs">
                     <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-red-700"></span>
-                    Built for Pinamalayan, Oriental Mindoro
+                    Built for Working Student in Pinamalayan, Oriental Mindoro
                 </div>
-                <h1 id="hero-title" class="text-[clamp(2.5rem,5.5vw,4.7rem)] font-bold leading-[1.05] tracking-[-0.055em]">
+                <h1 id="hero-title" class="text-[clamp(2rem,10vw,2.5rem)] font-bold leading-[1.05] tracking-[-0.055em] lg:text-[clamp(2.5rem,5.5vw,4.7rem)]">
                     Your skills.<br>Your schedule.<br><span class="text-red-700">Your next move.</span>
                 </h1>
                 <p class="mt-6 max-w-[450px] text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">Find local work that fits your student life. Connect with employers and household hirers, and make room for what matters.</p>
@@ -44,7 +50,7 @@
                     <a href="#features" class="inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-red-700 px-6 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">Explore DiskarTech <x-landing-icon name="arrow" class="h-4 w-4" /></a>
                     <a href="#how-it-works" class="inline-flex min-h-12 items-center justify-center rounded-full border border-stone-300 px-6 text-sm font-semibold transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900">How it works</a>
                 </div>
-                <p class="mt-4 flex items-center gap-2 text-xs text-slate-500"><x-landing-icon name="android" class="h-4 w-4" /> Android app &middot; Coming soon</p>
+                <p class="mt-4 flex items-center gap-2 text-xs text-slate-500"><x-landing-icon name="android" class="h-4 w-4" /> Android app &middot; Download via Expo</p>
                 <div class="mt-9 flex flex-wrap gap-x-5 gap-y-3 border-t border-stone-200 pt-6 text-xs font-medium text-slate-600">
                     <span class="inline-flex items-center gap-1.5"><x-landing-icon name="sparkles" class="h-4 w-4 text-red-700" /> AI recommendations</span>
                     <span class="inline-flex items-center gap-1.5"><x-landing-icon name="location" class="h-4 w-4 text-red-700" /> Nearby opportunities</span>
@@ -151,10 +157,10 @@
                 <div aria-hidden="true" class="pointer-events-none absolute -left-28 -top-24 h-80 w-80 rounded-full border border-white/5"></div>
                 <div aria-hidden="true" class="pointer-events-none absolute -bottom-48 -right-16 h-96 w-96 rounded-full border border-white/5"></div>
                 <div class="relative">
-                    <span class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-1.5 text-[11px] text-slate-300"><span class="h-1.5 w-1.5 rounded-full bg-red-400"></span> Coming soon for Android</span>
+                    <span class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-1.5 text-[11px] text-slate-300"><span class="h-1.5 w-1.5 rounded-full bg-red-400"></span> Get DiskarTech for Android</span>
                     <h2 id="download-title" class="text-3xl font-bold leading-tight tracking-tight sm:text-5xl">Your next move<br>starts here.</h2>
-                    <p class="mx-auto mt-5 max-w-md text-sm leading-7 text-slate-400">DiskarTech is getting ready for Android. Come back here for the download link when the app is released.</p>
-                    <button type="button" disabled aria-disabled="true" class="mt-7 inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-2.5 rounded-full border border-white/15 bg-white/10 px-6 text-sm font-semibold text-slate-300"><x-landing-icon name="android" class="h-5 w-5" /> Download coming soon</button>
+                    <p class="mx-auto mt-5 max-w-md text-sm leading-7 text-slate-400">Find your next opportunity with DiskarTech. Open our Expo build page for download and installation options.</p>
+                    <a href="{{ $downloadUrl }}" target="_blank" rel="noopener noreferrer" class="mt-7 inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full bg-red-700 px-6 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"><x-landing-icon name="android" class="h-5 w-5" /> Download for Android <span class="sr-only">(opens in a new tab)</span></a>
                     <p class="mt-5 text-xs text-slate-400">For students. For hirers. For our community.</p>
                 </div>
             </div>
