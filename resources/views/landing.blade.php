@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DiskarTech | Local work. Your kind of schedule.</title>
+    <title>DiskarTech</title>
     <meta name="description" content="Discover local work in Pinamalayan with DiskarTech. Explore nearby jobs, AI recommendations based on your skills and schedule, and opportunities from employers and household hirers.">
     <meta name="theme-color" content="#FDFBF7">
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
