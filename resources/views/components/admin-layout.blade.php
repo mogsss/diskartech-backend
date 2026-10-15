@@ -7,11 +7,12 @@
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
+    <style>[x-cloak] { display: none !important; }</style>
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-[#FDFBF7] min-h-screen text-slate-800 flex font-sans antialiased overflow-x-hidden" x-data="adminNotificationCenter()" x-init="init()">
+<body class="bg-[#FDFBF7] min-h-screen text-slate-800 flex font-sans antialiased overflow-x-hidden" x-data="adminNotificationCenter()">
 
     <!-- Floating Real-Time Incident Toast Alert -->
     <div 

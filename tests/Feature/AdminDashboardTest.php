@@ -30,6 +30,10 @@ class AdminDashboardTest extends TestCase
             });
         }
         Schema::create('available_jobs', function (Blueprint $table) { $table->id(); $table->string('title'); $table->string('status'); $table->timestamps(); });
+        Schema::create('job_applications', function (Blueprint $table) {
+            $table->id(); $table->unsignedBigInteger('job_id'); $table->unsignedBigInteger('student_id');
+            $table->string('status')->default('Pending'); $table->timestamps();
+        });
         Schema::create('reports', function (Blueprint $table) {
             $table->id(); $table->unsignedBigInteger('reporter_id'); $table->unsignedBigInteger('reported_user_id')->nullable();
             $table->unsignedBigInteger('job_id')->nullable(); $table->string('subject'); $table->text('description');
@@ -113,6 +117,48 @@ class AdminDashboardTest extends TestCase
             ->assertViewHas('openJobsCount', 0)->assertSee('No accounts waiting for review')
             ->assertSee('No open incidents')->assertSee('No new registrations during this period.');
         $this->assertSame(0, $response->viewData('weeklyActivity')->sum('count'));
+        $response->assertViewHas('jobApplicationsTotal', 0)->assertSee('No job applications yet.');
+        $this->assertSame(0, $response->viewData('jobStatusChart')->sum('count'));
+        $this->assertSame(0, $response->viewData('jobStatusChart')->sum('percentage'));
+        $response->assertDontSee('stroke-dasharray=', false);
+    }
+
+    public function test_hiring_chart_counts_current_applications_and_normalizes_statuses(): void
+    {
+        $student = $this->account('student');
+        $job = DB::table('available_jobs')->insertGetId(['title' => 'Example job', 'status' => 'active']);
+        foreach (['Pending', 'pending', 'INTERVIEW', 'Accepted', 'accepted', 'hired', 'COMPLETED', 'completed', 'cancelled', 'rejected', 'terminated', 'awaiting_documents'] as $status) {
+            DB::table('job_applications')->insert(['job_id' => $job, 'student_id' => $student, 'status' => $status]);
+        }
+        $response = $this->get('/admin/dashboard')->assertOk()->assertViewHas('jobApplicationsTotal', 12)
+            ->assertSee('Job application status')->assertSee('Hired: 3 applications (25.0%)')
+            ->assertSee('Each application is counted once by its current status.');
+        $chart = $response->viewData('jobStatusChart')->keyBy('key');
+        $this->assertSame([
+            'pending' => 2, 'interview' => 1, 'hired' => 3, 'completed' => 2,
+            'cancelled' => 1, 'rejected' => 1, 'terminated' => 1, 'other' => 1,
+        ], $chart->pluck('count', 'key')->all());
+        $this->assertEqualsWithDelta(100, $chart->sum('percentage'), 0.000001);
+        $this->assertSame(25.0, $chart['hired']['percentage']);
+        if ($path = getenv('DISKARTECH_DASHBOARD_PREVIEW_PATH')) file_put_contents($path, $response->getContent());
+    }
+
+    public function test_hiring_chart_updates_when_an_application_is_completed(): void
+    {
+        $job = DB::table('available_jobs')->insertGetId(['title' => 'Example job', 'status' => 'closed']);
+        $application = DB::table('job_applications')->insertGetId(['job_id' => $job, 'student_id' => 1, 'status' => 'accepted']);
+        $before = $this->get('/admin/dashboard')->assertOk()->viewData('jobStatusChart')->keyBy('key');
+        $this->assertSame(1, $before['hired']['count']);
+        $this->assertSame(0, $before['completed']['count']);
+
+        DB::table('job_applications')->where('id', $application)->update(['status' => 'completed']);
+        $response = $this->get('/admin/dashboard')->assertOk()->assertViewHas('jobApplicationsTotal', 1)
+            ->assertSee('stroke-dasharray="100.000000 0.000000"', false)->assertDontSee('NaN');
+        $after = $response->viewData('jobStatusChart')->keyBy('key');
+        $this->assertSame(0, $after['hired']['count']);
+        $this->assertSame(1, $after['completed']['count']);
+        $this->assertEquals(100, $after['completed']['percentage']);
+        $this->assertFalse($after->has('other'));
     }
 
     public function test_dashboard_requires_admin_authentication(): void

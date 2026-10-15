@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Jobs;
+use App\Models\JobApplication;
 use App\Models\Report;
 
 class DashboardController extends Controller
@@ -16,6 +17,32 @@ class DashboardController extends Controller
         $householdCount = (int) ($roleCounts['household'] ?? 0);
         $employerCount = (int) ($roleCounts['employer'] ?? 0);
         $openJobsCount = Jobs::where('status', 'active')->count();
+
+        // Hiring outcomes belong to applications; one listing can have multiple applicants.
+        $applicationCounts = JobApplication::selectRaw('LOWER(TRIM(status)) AS normalized_status, COUNT(*) AS total')
+            ->groupByRaw('LOWER(TRIM(status))')->pluck('total', 'normalized_status');
+        $jobApplicationsTotal = (int) $applicationCounts->sum();
+        $jobStatusChart = collect([
+            ['key' => 'pending', 'label' => 'Pending', 'color' => '#D97706', 'statuses' => ['pending']],
+            ['key' => 'interview', 'label' => 'Interview', 'color' => '#0284C7', 'statuses' => ['interview']],
+            ['key' => 'hired', 'label' => 'Hired', 'color' => '#4F46E5', 'statuses' => ['accepted', 'hired']],
+            ['key' => 'completed', 'label' => 'Completed', 'color' => '#059669', 'statuses' => ['completed']],
+            ['key' => 'cancelled', 'label' => 'Cancelled', 'color' => '#64748B', 'statuses' => ['cancelled']],
+            ['key' => 'rejected', 'label' => 'Rejected', 'color' => '#E11D48', 'statuses' => ['rejected']],
+            ['key' => 'terminated', 'label' => 'Terminated', 'color' => '#C2410C', 'statuses' => ['terminated']],
+        ])->map(function ($segment) use ($applicationCounts) {
+            $segment['count'] = (int) collect($segment['statuses'])->sum(fn ($status) => $applicationCounts[$status] ?? 0);
+            unset($segment['statuses']);
+            return $segment;
+        });
+        $otherCount = $jobApplicationsTotal - $jobStatusChart->sum('count');
+        if ($otherCount > 0) {
+            $jobStatusChart->push(['key' => 'other', 'label' => 'Other', 'color' => '#78716C', 'count' => $otherCount]);
+        }
+        $jobStatusChart = $jobStatusChart->map(function ($segment) use ($jobApplicationsTotal) {
+            $segment['percentage'] = $jobApplicationsTotal > 0 ? $segment['count'] / $jobApplicationsTotal * 100 : 0;
+            return $segment;
+        });
 
         // The overview queue includes only complete submissions awaiting a decision.
         $profileTypes = [
@@ -65,6 +92,8 @@ class DashboardController extends Controller
             'flaggedCount',
             'pendingVerificationCount',
             'openJobsCount',
+            'jobStatusChart',
+            'jobApplicationsTotal',
             'weeklyActivity',
             'generatedAt'
         ));

@@ -57,6 +57,8 @@
 
         <div x-data="{ openModal: false, applicant: {}, showReview(data) { this.applicant = data; this.openModal = true; } }" @keydown.escape.window="openModal = false" class="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
             <div class="space-y-6 xl:col-span-8">
+                @include('admin.partials.job-status-chart')
+
                 <section class="overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm" aria-labelledby="queue-title">
                     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-stone-100 p-5 sm:px-6">
                         <div><div class="flex items-center gap-2"><h2 id="queue-title" class="text-base font-bold text-slate-900">Verification queue</h2><span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700">{{ number_format($pendingVerificationCount) }}</span></div><p class="mt-1 text-xs leading-5 text-slate-500">Complete document submissions awaiting a decision.</p></div>
