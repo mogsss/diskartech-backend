@@ -43,12 +43,18 @@ php artisan migrate --path=database/migrations/2026_10_12_160000_create_chat_att
 # Payment ownership and fulfillment must be available before checkout requests.
 php artisan migrate --path=database/migrations/2026_10_13_120000_create_subscription_payments_table.php --force --no-interaction
 
+# Account deletion needs persistent, single-use email challenges and file cleanup records.
+php artisan migrate --path=database/migrations/2026_10_16_120000_create_account_deletion_tables.php --force --no-interaction
+
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true
 
 # Start background queue worker loop for automated background tasks and AI analysis
 (while true; do php artisan queue:work --sleep=3 --tries=3 --max-time=3600; sleep 5; done) &
+
+# Retry profile-file removal independently of the mobile request and provider outages.
+(while true; do php artisan accounts:cleanup-files --limit=25; sleep 300; done) &
 
 # Start Apache in the foreground
 exec apache2-foreground

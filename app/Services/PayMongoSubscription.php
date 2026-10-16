@@ -56,6 +56,7 @@ class PayMongoSubscription
         $methods = $this->methods();
         [$order, $create] = DB::transaction(function () use ($user, $cycle, $requestId, $methods) {
             Employer::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+            abort_unless(User::whereKey($user->id)->exists(), 403, 'This account is no longer active.');
             $order = SubscriptionPayment::where('user_id', $user->id)->where('request_id', $requestId)->first();
             if (!$order) $order = SubscriptionPayment::where('user_id', $user->id)->whereIn('status', ['creating', 'pending'])->latest()->first();
             if ($order) {
@@ -140,12 +141,17 @@ class PayMongoSubscription
                 $existing = $employer->subscription_expires_at ? CarbonImmutable::parse($employer->subscription_expires_at, 'UTC') : null;
                 $base = (bool) $employer->isSubscribed && $existing && $existing->greaterThan($start) ? $existing : $start;
                 $until = $locked->billing_cycle === 'monthly' ? $base->addMonthNoOverflow() : $base->addYearNoOverflow();
-                $employer->isSubscribed = true;
-                $employer->subscription_plan = 'premium';
-                $employer->subscription_started_at = $start;
-                $employer->subscription_expires_at = $until;
-                $employer->save();
-                $locked->status = 'paid'; $locked->payment_id = $paid['id']; $locked->paid_at = $start; $locked->granted_until = $until;
+                // A checkout can finish after account deletion. Record the payment
+                // without restoring the deleted account's subscription benefits.
+                $activeAccount = User::whereKey($order->user_id)->exists();
+                if ($activeAccount) {
+                    $employer->isSubscribed = true;
+                    $employer->subscription_plan = 'premium';
+                    $employer->subscription_started_at = $start;
+                    $employer->subscription_expires_at = $until;
+                    $employer->save();
+                }
+                $locked->status = 'paid'; $locked->payment_id = $paid['id']; $locked->paid_at = $start; $locked->granted_until = $activeAccount ? $until : null;
             } elseif (($attributes['status'] ?? '') === 'expired') $locked->status = 'expired';
             else $locked->status = 'pending';
             $locked->save();

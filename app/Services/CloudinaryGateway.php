@@ -21,6 +21,14 @@ class CloudinaryGateway
         return (string) $asset->toUrl();
     }
 
+    public function delete(string $publicId, array $options): void
+    {
+        $result = $this->client()->uploadApi()->destroy($publicId, $options);
+        if (!in_array($result['result'] ?? null, ['ok', 'not found'], true)) {
+            throw new RuntimeException('File cleanup did not complete.');
+        }
+    }
+
     private function client(): Cloudinary
     {
         $cloud = config('uploads.cloudinary');

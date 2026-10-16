@@ -217,4 +217,30 @@ class EmployerSubscriptionTest extends TestCase
         $order = $this->create();
         $this->verify($order, $this->providerSession($order))->assertOk()->assertJsonPath('subscription.expires_at', '2027-02-28T10:00:00+00:00');
     }
+
+    public function test_payment_after_account_deletion_is_recorded_without_restoring_pro(): void
+    {
+        $order = $this->create();
+        $this->employer->forceFill(['role' => 'deleted'])->save();
+        $session = $this->providerSession($order);
+        $this->provider = fn () => Http::response($session);
+        app(\App\Services\PayMongoSubscription::class)->verify($order);
+        $this->assertSame('paid', $order->fresh()->status);
+        $this->assertNull($order->fresh()->granted_until);
+        $this->assertFalse((bool) Employer::where('user_id', $this->employer->id)->first()->isSubscribed);
+        $this->assertNull(User::find($this->employer->id));
+    }
+
+    public function test_a_deleted_account_cannot_create_a_checkout_from_an_old_request(): void
+    {
+        $this->employer->forceFill(['role' => 'deleted'])->save();
+        try {
+            app(\App\Services\PayMongoSubscription::class)->create($this->employer, 'monthly', (string) Str::uuid());
+            $this->fail('Deleted accounts must not create checkouts.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+        $this->assertSame(0, SubscriptionPayment::count());
+        Http::assertNothingSent();
+    }
 }

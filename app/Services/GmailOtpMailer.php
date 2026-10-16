@@ -19,7 +19,12 @@ class GmailOtpMailer
         $this->sendCode($recipient, $otp, true);
     }
 
-    private function sendCode(string $recipient, string $otp, bool $passwordReset): void
+    public function sendAccountDeletionCode(string $recipient, string $otp): void
+    {
+        $this->sendCode($recipient, $otp, false, true);
+    }
+
+    private function sendCode(string $recipient, string $otp, bool $passwordReset, bool $accountDeletion = false): void
     {
         $settings = config('services.gmail');
         foreach (['client_id', 'client_secret', 'refresh_token', 'from_address'] as $field) {
@@ -53,13 +58,13 @@ class GmailOtpMailer
             Cache::put($cacheKey, $accessToken, max(1, $expiresIn - 60));
         }
 
-        $expiryMinutes = $passwordReset ? 10 : max(1, (int) config('services.otp.expiry_minutes', 5));
-        $purpose = $passwordReset ? 'reset your DiskarTech password' : 'verify your email address';
+        $expiryMinutes = $passwordReset || $accountDeletion ? 10 : max(1, (int) config('services.otp.expiry_minutes', 5));
+        $purpose = $accountDeletion ? 'permanently delete your DiskarTech account' : ($passwordReset ? 'reset your DiskarTech password' : 'verify your email address');
 
         $message = (new Email)
             ->from(new Address($settings['from_address'], 'DiskarTech'))
             ->to($recipient)
-            ->subject($passwordReset ? 'Reset Your Password | DiskarTech' : 'Verify Your Email Address | DiskarTech')
+            ->subject($accountDeletion ? 'Confirm Account Deletion | DiskarTech' : ($passwordReset ? 'Reset Your Password | DiskarTech' : 'Verify Your Email Address | DiskarTech'))
             ->text("Hello,\n\nYour DiskarTech verification code is: {$otp}\n\n"
                 ."Use this code to {$purpose}. This code expires in {$expiryMinutes} minutes. Do not share it with anyone.\n\n"
                 ."If you did not request this code, please ignore this email.\n\nThe DiskarTech Team")

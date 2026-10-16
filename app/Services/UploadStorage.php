@@ -93,6 +93,31 @@ class UploadStorage
         return str_starts_with($path, self::DOCUMENT_PREFIX);
     }
 
+    public function deleteProfileFile(string $path): void
+    {
+        if ($this->isDocument($path)) {
+            app(CloudinaryGateway::class)->delete($this->documentId($path), ['resource_type' => 'raw', 'type' => 'authenticated', 'invalidate' => true]);
+            return;
+        }
+        if (preg_match('~^https?://~i', $path)) {
+            // Never fetch arbitrary URLs or delete an external provider's avatar.
+            $cloud = preg_quote((string) config('uploads.cloudinary.cloud_name'), '~');
+            $url = parse_url($path);
+            if (($url['host'] ?? '') !== 'res.cloudinary.com' || !$cloud) return;
+            if (!preg_match('~^/'.$cloud.'/image/upload/(?:v[0-9]+/)?(.+)\.[a-zA-Z0-9]+$~D', rawurldecode($url['path'] ?? ''), $match)) {
+                throw new \RuntimeException('Unrecognized profile image reference.');
+            }
+            $this->assertSafePath($match[1]);
+            app(CloudinaryGateway::class)->delete($match[1], ['resource_type' => 'image', 'type' => 'upload', 'invalidate' => true]);
+            return;
+        }
+        $path = ltrim(preg_replace('~^(?:/?storage/)+~', '', $path), '/');
+        $this->assertSafePath($path);
+        if (Storage::disk('public')->exists($path) && !Storage::disk('public')->delete($path)) {
+            throw new \RuntimeException('Profile file cleanup did not complete.');
+        }
+    }
+
     public function read(string $path): string
     {
         if ($this->isDocument($path)) {

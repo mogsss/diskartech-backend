@@ -12,6 +12,13 @@ class User extends Authenticatable // 👈 Tinanggal na ang implements MustVerif
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    protected static function booted(): void
+    {
+        // Anonymized account placeholders preserve shared work/payment records,
+        // but must never resolve through login, Sanctum, or public user queries.
+        static::addGlobalScope('active-account', fn ($query) => $query->where($query->getModel()->qualifyColumn('role'), '<>', 'deleted'));
+    }
+
     protected $fillable = [
         'email',
         'password',

@@ -77,6 +77,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/user/update-profile', [AuthController::class, 'updateUserProfile']);
     Route::get('/user/account', [\App\Http\Controllers\Api\AccountController::class, 'show']);
     Route::put('/user/password', [\App\Http\Controllers\Api\AccountController::class, 'updatePassword'])->middleware('throttle:5,1');
+    Route::post('/user/deletion-code', [\App\Http\Controllers\Api\AccountDeletionController::class, 'sendCode'])->middleware('throttle:10,1,account-deletion-send:');
+    Route::delete('/user/account', [\App\Http\Controllers\Api\AccountDeletionController::class, 'destroy'])->middleware('throttle:10,1,account-deletion-confirm:');
 
     // ==========================================
     // OTP Email Verification Routes (Nasa loob ng Sanctum)
