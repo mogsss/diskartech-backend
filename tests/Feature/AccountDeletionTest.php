@@ -6,11 +6,13 @@ use App\Models\User;
 use App\Services\AccountDeletion;
 use App\Services\CloudinaryGateway;
 use App\Services\GmailOtpMailer;
+use App\Services\GmailDeliveryException;
 use App\Services\UploadStorage;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -180,11 +182,72 @@ class AccountDeletionTest extends TestCase
 
     public function test_mail_failure_never_provides_a_deletion_challenge_or_leaks_provider_details(): void
     {
+        Log::spy();
+        Log::shouldReceive('channel')->with('stderr')->andReturnSelf();
         [$user, $token] = $this->account();
         $this->mock(GmailOtpMailer::class)->shouldReceive('sendAccountDeletionCode')->andThrow(new \RuntimeException('provider-secret'));
         $this->asToken($token)->postJson('/api/user/deletion-code')->assertStatus(503)->assertDontSee('provider-secret');
         $this->assertDatabaseMissing('account_deletion_codes', ['user_id' => $user->id]);
         $this->assertNotNull(User::find($user->id));
+        Log::shouldHaveReceived('warning')->with('Account deletion email delivery could not complete.', [
+            'stage' => 'send_email', 'exception_type' => \RuntimeException::class,
+        ])->once();
+    }
+
+    public function test_real_deletion_mailer_creates_the_email_and_saves_a_usable_challenge(): void
+    {
+        [$user, $token] = $this->account('student', true);
+        $this->app->instance(GmailOtpMailer::class, new GmailOtpMailer);
+        config(['services.gmail.client_id' => 'fixture-client', 'services.gmail.client_secret' => 'fixture-secret',
+            'services.gmail.refresh_token' => 'fixture-refresh', 'services.gmail.from_address' => 'sender@example.com']);
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'fixture-access', 'expires_in' => 3600]),
+            'gmail.googleapis.com/*' => Http::response(['id' => 'fixture-message']),
+        ]);
+        $this->asToken($token)->postJson('/api/user/deletion-code')->assertOk()->assertDontSee('fixture-access');
+        $sentCode = null;
+        Http::assertSent(function ($request) use ($user, &$sentCode) {
+            if (!str_contains($request->url(), 'messages/send')) return false;
+            $mime = base64_decode(strtr($request['raw'], '-_', '+/'));
+            preg_match('/verification code is: ([0-9]{6})/', $mime, $match);
+            $sentCode = $match[1] ?? null;
+            return $request->hasHeader('Authorization', 'Bearer fixture-access') && $sentCode
+                && str_contains($mime, 'Confirm Account Deletion | DiskarTech')
+                && str_contains($mime, 'To: '.$user->email) && str_contains($mime, '10 minutes');
+        });
+        $this->assertSame(hash_hmac('sha256', $sentCode, config('app.key')), DB::table('account_deletion_codes')->where('user_id', $user->id)->value('code_hash'));
+        $this->asToken($token)->deleteJson('/api/user/account', $this->payload(['code' => $sentCode]))->assertOk();
+        Http::assertSentCount(2);
+    }
+
+    public function test_gmail_configuration_failure_has_a_safe_diagnostic(): void
+    {
+        Log::spy();
+        Log::shouldReceive('channel')->with('stderr')->andReturnSelf();
+        [, $token] = $this->account();
+        $this->app->instance(GmailOtpMailer::class, new GmailOtpMailer);
+        config(['services.gmail.refresh_token' => null]);
+        $this->asToken($token)->postJson('/api/user/deletion-code')->assertStatus(503);
+        Log::shouldHaveReceived('warning')->with('Account deletion email delivery could not complete.', [
+            'stage' => 'send_email', 'exception_type' => GmailDeliveryException::class,
+            'reason' => 'Gmail OTP credentials are not configured.',
+        ])->once();
+        Http::assertNothingSent();
+    }
+
+    public function test_database_failure_is_distinguishable_from_email_failure_without_logging_sql(): void
+    {
+        Log::spy();
+        Log::shouldReceive('channel')->with('stderr')->andReturnSelf();
+        [, $token] = $this->account();
+        Schema::drop('account_deletion_codes');
+        $this->asToken($token)->postJson('/api/user/deletion-code')->assertStatus(503);
+        Log::shouldHaveReceived('warning')->withArgs(function ($message, $context) {
+            return $message === 'Account deletion email delivery could not complete.'
+                && $context['stage'] === 'load_challenge' && isset($context['sqlstate'])
+                && count($context) === 3;
+        })->once();
+        $this->assertCount(0, $this->recipients);
     }
 
     public function test_active_work_and_pro_do_not_block_deletion_and_shared_records_survive(): void

@@ -675,7 +675,7 @@ class AuthController extends Controller
                 $mailer->sendVerificationCode($user->email, $otp);
             } catch (\Throwable $exception) {
                 // Transport exceptions can include secrets; log only safe diagnostics.
-                Log::warning('Gmail OTP sending failed.', [
+                Log::channel('stderr')->warning('Gmail OTP sending failed.', [
                     'user_id' => $user->id,
                     'exception_type' => get_class($exception),
                     'reason' => $exception instanceof GmailDeliveryException

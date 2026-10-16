@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\GmailOtpMailer;
+use App\Services\GmailDeliveryException;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -46,23 +48,30 @@ class PasswordResetController extends Controller
         }
         RateLimiter::hit($key.':minute', 60);
         RateLimiter::hit($key.':hour', 3600);
+        $stage = 'load_account';
         try {
-            DB::transaction(function () use ($email, $mailer) {
+            DB::transaction(function () use ($email, $mailer, &$stage) {
                 $user = $this->user($email);
                 if (!$this->eligible($user)) return;
+                $stage = 'load_challenge';
                 $previous = DB::table('mobile_password_resets')->where('email', $email)->first();
                 if ($previous && Carbon::parse($previous->sent_at)->addSeconds(60)->isFuture()) return;
                 $code = (string) random_int(100000, 999999);
+                $stage = 'send_email';
                 $mailer->sendPasswordResetCode($user->email, $code);
+                $stage = 'save_challenge';
                 DB::table('mobile_password_resets')->updateOrInsert(['email' => $email], [
                     'user_id' => $user->id, 'code_hash' => hash_hmac('sha256', $code, config('app.key')),
                     'expires_at' => now()->addMinutes(10), 'attempts' => 0,
                     'reset_token_hash' => null, 'reset_expires_at' => null, 'sent_at' => now(),
                 ]);
             });
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             // Never log the code, password, email body, or provider exception payload.
-            Log::warning('Password reset email delivery could not complete.');
+            $context = ['stage' => $stage, 'exception_type' => get_class($exception)];
+            if ($exception instanceof GmailDeliveryException) $context['reason'] = $exception->getMessage();
+            if ($exception instanceof QueryException) $context['sqlstate'] = (string) $exception->getCode();
+            Log::channel('stderr')->warning('Password reset email delivery could not complete.', $context);
             return response()->json(['message' => 'Unable to send the reset email right now. Please try again later.'], 503);
         }
         // Same response for missing accounts and Google registration; no account lookup disclosure.

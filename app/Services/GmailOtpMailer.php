@@ -52,7 +52,12 @@ class GmailOtpMailer
             $accessToken = $response->json('access_token');
             $expiresIn = (int) $response->json('expires_in', 0);
             if (! $response->successful() || ! is_string($accessToken) || $accessToken === '' || $expiresIn <= 0) {
-                throw new GmailDeliveryException('Gmail authorization failed (HTTP '.$response->status().').');
+                // Only allow documented OAuth error identifiers into diagnostics.
+                // Descriptions and raw provider bodies may contain sensitive data.
+                $error = $response->json('error');
+                $knownError = in_array($error, ['invalid_grant', 'invalid_client', 'unauthorized_client', 'invalid_scope', 'access_denied', 'temporarily_unavailable', 'unsupported_grant_type'], true)
+                    ? '; '.$error : '';
+                throw new GmailDeliveryException('Gmail authorization failed (HTTP '.$response->status().$knownError.').');
             }
 
             Cache::put($cacheKey, $accessToken, max(1, $expiresIn - 60));

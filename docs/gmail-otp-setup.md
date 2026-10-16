@@ -69,6 +69,19 @@ Register using a second email address you control. Confirm the code arrives in i
 
 The automated tests use fake Google responses. They do not send real emails and cannot establish inbox delivery.
 
+### Live error diagnostics
+
+Verification, password-reset and account-deletion email failures write sanitized warnings to the `stderr` logging channel so they appear in Render's service Logs even when the default Laravel channel writes to a file. Search for `Gmail OTP sending failed`, `Password reset email delivery could not complete`, or `Account deletion email delivery could not complete` at the time of the failed request.
+
+- `reason: Gmail OTP credentials are not configured.`: check the four `GMAIL_*` environment settings in the deployed service, then save and deploy.
+- `reason: Gmail authorization failed (HTTP 400; invalid_grant).`: Google rejected the sender's refresh token. Review revocation/expiration and reauthorize the same sender with the configured client, then privately update `GMAIL_REFRESH_TOKEN` in Render and deploy. Do not paste credentials into logs or support messages.
+- `invalid_client`: check that the configured client ID, secret and refresh token belong to the same OAuth client.
+- `Gmail did not accept the OTP email (HTTP ...)`: inspect the reported status; authorization succeeded but Gmail did not accept delivery.
+- `stage: load_challenge` or `save_challenge` with a `sqlstate`: investigate the database/migration rather than changing Gmail authorization. SQL queries and bindings are deliberately omitted.
+- A connection exception identifies transport failure; raw network exception messages are deliberately omitted.
+
+The HTTP `503` and generic app message alone do not identify the cause. HTTP `429` indicates the endpoint's cooldown/rate limit. These diagnostics never include the OTP, email contents, credentials, raw provider response or OAuth error description.
+
 ## Ongoing use
 
 An External OAuth project in **Testing** generally issues Gmail refresh tokens that expire after seven days. Before relying on continuous operation, review **Audience > Publishing status**, move to production when appropriate, complete any verification Google requires, and authorize again to obtain a token under that status. Publishing does not remove all possible causes of token expiration or revocation. [Google token expiration rules](https://developers.google.com/identity/protocols/oauth2#expiration).

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AccountDeletion;
+use App\Services\GmailDeliveryException;
 use App\Services\GmailOtpMailer;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -35,13 +37,17 @@ class AccountDeletionController extends Controller
         }
         RateLimiter::hit($key.':minute', 60);
         RateLimiter::hit($key.':hour', 3600);
+        $stage = 'load_account';
         try {
-            $sent = DB::transaction(function () use ($account, $request, $mailer) {
+            $sent = DB::transaction(function () use ($account, $request, $mailer, &$stage) {
                 $user = User::whereKey($account->id)->lockForUpdate()->firstOrFail();
+                $stage = 'load_challenge';
                 $previous = DB::table('account_deletion_codes')->where('user_id', $user->id)->first();
                 if ($previous && Carbon::parse($previous->sent_at)->addSeconds(60)->isFuture()) return false;
                 $code = (string) random_int(100000, 999999);
+                $stage = 'send_email';
                 $mailer->sendAccountDeletionCode($user->email, $code);
+                $stage = 'save_challenge';
                 DB::table('account_deletion_codes')->updateOrInsert(['user_id' => $user->id], [
                     'session_hash' => hash('sha256', $request->bearerToken()),
                     'code_hash' => hash_hmac('sha256', $code, config('app.key')),
@@ -49,8 +55,13 @@ class AccountDeletionController extends Controller
                 ]);
                 return true;
             });
-        } catch (\Throwable) {
-            Log::warning('Account deletion email delivery could not complete.');
+        } catch (\Throwable $exception) {
+            // Provider/SQL exceptions can contain credentials, recipients or codes.
+            // Only our application-defined mail diagnostics and SQLSTATE are safe.
+            $context = ['stage' => $stage, 'exception_type' => get_class($exception)];
+            if ($exception instanceof GmailDeliveryException) $context['reason'] = $exception->getMessage();
+            if ($exception instanceof QueryException) $context['sqlstate'] = (string) $exception->getCode();
+            Log::channel('stderr')->warning('Account deletion email delivery could not complete.', $context);
             return response()->json(['message' => 'Unable to send the deletion code right now. Please try again later.'], 503)->header('Cache-Control', 'no-store');
         }
         if (!$sent) return response()->json(['message' => 'Please wait before requesting another deletion code.', 'retry_after' => 60], 429)->header('Retry-After', 60)->header('Cache-Control', 'no-store');

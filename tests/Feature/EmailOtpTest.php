@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\GmailOtpMailer;
+use App\Services\GmailDeliveryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -31,6 +33,7 @@ class EmailOtpTest extends TestCase
         ]);
         Http::preventStrayRequests();
         Log::spy();
+        Log::shouldReceive('channel')->with('stderr')->andReturnSelf();
         $this->travelTo(now()->startOfSecond());
 
         Schema::create('users', function (Blueprint $table) {
@@ -215,5 +218,32 @@ class EmailOtpTest extends TestCase
         $this->postJson('/api/email/send-otp')->assertUnauthorized();
         $this->postJson('/api/email/verify-otp', ['otp_code' => '654321'])->assertUnauthorized();
         Http::assertNothingSent();
+    }
+
+    public function test_oauth_failure_identifies_invalid_grant_without_provider_descriptions_or_tokens(): void
+    {
+        Http::fake(['oauth2.googleapis.com/token' => Http::response([
+            'error' => 'invalid_grant', 'error_description' => 'private-provider-description',
+            'access_token' => 'private-provider-token',
+        ], 400)]);
+        try {
+            (new GmailOtpMailer)->sendAccountDeletionCode('user@example.com', '123456');
+            $this->fail('Authorization failure must stop email delivery.');
+        } catch (GmailDeliveryException $exception) {
+            $this->assertSame('Gmail authorization failed (HTTP 400; invalid_grant).', $exception->getMessage());
+        }
+        Http::assertSentCount(1);
+    }
+
+    public function test_unknown_oauth_error_content_is_never_copied_into_the_safe_exception(): void
+    {
+        Http::fake(['oauth2.googleapis.com/token' => Http::response(['error' => 'private-provider-payload'], 400)]);
+        try {
+            (new GmailOtpMailer)->sendAccountDeletionCode('user@example.com', '123456');
+            $this->fail('Authorization failure must stop email delivery.');
+        } catch (GmailDeliveryException $exception) {
+            $this->assertSame('Gmail authorization failed (HTTP 400).', $exception->getMessage());
+        }
+        Http::assertSentCount(1);
     }
 }
