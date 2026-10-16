@@ -8,6 +8,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -20,7 +21,7 @@ class PasswordResetTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array', 'cache.limiter' => 'array']);
+        config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array', 'cache.limiter' => 'array', 'services.otp.password_reset_resend_cooldown' => 90]);
         (require database_path('migrations/0001_01_01_000000_create_users_table.php'))->up();
         Schema::table('users', function (Blueprint $table) {
             $table->boolean('registered_with_google')->default(false);
@@ -148,14 +149,42 @@ class PasswordResetTest extends TestCase
     public function test_resending_invalidates_the_previous_reset_grant_and_limits_requests(): void
     {
         $user = $this->account(); $token = $this->grant($user);
-        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertStatus(429)->assertJsonPath('retry_after', 60);
-        $this->travel(61)->seconds();
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertStatus(429)->assertJsonPath('retry_after', 90)->assertHeader('Retry-After', '90');
+        $this->travel(89)->seconds();
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertStatus(429)->assertJsonPath('retry_after', 1);
+        $this->travel(1)->seconds();
         $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk();
         $this->postJson('/api/password/reset', $this->payload($user, $token))->assertUnprocessable();
-        $this->travel(61)->seconds();
+        for ($attempt = 0; $attempt < 4; $attempt++) {
+            $this->travel(90)->seconds();
+            $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk()->assertJsonPath('retry_after', 90);
+        }
+    }
+
+    public function test_legacy_hourly_counters_do_not_impose_a_long_wait_after_deployment(): void
+    {
+        $user = $this->account();
+        $key = 'password-reset:'.hash('sha256', $user->email);
+        for ($attempt = 0; $attempt < 3; $attempt++) RateLimiter::hit($key.':hour', 3600);
+        RateLimiter::hit($key.':minute', 60);
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk()->assertJsonPath('retry_after', 90);
+        $this->assertNotSame('', $this->code);
+    }
+
+    public function test_configured_cooldown_is_used_in_the_response_and_persistent_send_guard(): void
+    {
+        config(['services.otp.password_reset_resend_cooldown' => 30]);
+        $user = $this->account();
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk()->assertJsonPath('retry_after', 30);
+        $sentAt = DB::table('mobile_password_resets')->where('email', $user->email)->value('sent_at');
+        $this->travel(10)->seconds();
+        $this->app['cache']->store()->flush();
         $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk();
-        $this->travel(61)->seconds();
-        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertStatus(429);
+        $this->assertSame($sentAt, DB::table('mobile_password_resets')->where('email', $user->email)->value('sent_at'));
+        $this->travel(21)->seconds();
+        $this->app['cache']->store()->flush();
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk();
+        $this->assertNotSame($sentAt, DB::table('mobile_password_resets')->where('email', $user->email)->value('sent_at'));
     }
 
     public function test_mail_failure_does_not_create_a_usable_challenge(): void

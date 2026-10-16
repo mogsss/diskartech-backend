@@ -38,24 +38,23 @@ class PasswordResetController extends Controller
     public function sendCode(Request $request, GmailOtpMailer $mailer)
     {
         $email = $this->email($request);
-        $key = 'password-reset:'.hash('sha256', $email);
-        if (RateLimiter::tooManyAttempts($key.':minute', 1) || RateLimiter::tooManyAttempts($key.':hour', 3)) {
-            $wait = max(
-                RateLimiter::tooManyAttempts($key.':minute', 1) ? RateLimiter::availableIn($key.':minute') : 0,
-                RateLimiter::tooManyAttempts($key.':hour', 3) ? RateLimiter::availableIn($key.':hour') : 0,
-            );
-            return response()->json(['message' => 'Please wait before requesting another code.', 'retry_after' => max(1, $wait)], 429)->header('Retry-After', max(1, $wait));
+        $cooldown = max(1, (int) config('services.otp.password_reset_resend_cooldown', 90));
+        // A separate key replaces the old hourly counter without clearing other
+        // accounts' cache entries. Every resend gets the same short cooldown.
+        $key = 'password-reset:'.hash('sha256', $email).':cooldown';
+        if (RateLimiter::tooManyAttempts($key, 1)) {
+            $wait = max(1, RateLimiter::availableIn($key));
+            return response()->json(['message' => 'Please wait before requesting another code.', 'retry_after' => $wait], 429)->header('Retry-After', $wait);
         }
-        RateLimiter::hit($key.':minute', 60);
-        RateLimiter::hit($key.':hour', 3600);
+        RateLimiter::hit($key, $cooldown);
         $stage = 'load_account';
         try {
-            DB::transaction(function () use ($email, $mailer, &$stage) {
+            DB::transaction(function () use ($email, $mailer, $cooldown, &$stage) {
                 $user = $this->user($email);
                 if (!$this->eligible($user)) return;
                 $stage = 'load_challenge';
                 $previous = DB::table('mobile_password_resets')->where('email', $email)->first();
-                if ($previous && Carbon::parse($previous->sent_at)->addSeconds(60)->isFuture()) return;
+                if ($previous && Carbon::parse($previous->sent_at)->addSeconds($cooldown)->isFuture()) return;
                 $code = (string) random_int(100000, 999999);
                 $stage = 'send_email';
                 $mailer->sendPasswordResetCode($user->email, $code);
@@ -75,7 +74,7 @@ class PasswordResetController extends Controller
             return response()->json(['message' => 'Unable to send the reset email right now. Please try again later.'], 503);
         }
         // Same response for missing accounts and Google registration; no account lookup disclosure.
-        return response()->json(['status' => 'success', 'message' => 'If this email belongs to an eligible account, a reset code will be sent. For Google registration, use Continue with Google.', 'retry_after' => 60])->header('Cache-Control', 'no-store');
+        return response()->json(['status' => 'success', 'message' => 'If this email belongs to an eligible account, a reset code will be sent. For Google registration, use Continue with Google.', 'retry_after' => $cooldown])->header('Cache-Control', 'no-store');
     }
 
     public function verifyCode(Request $request)

@@ -37,6 +37,7 @@ return [
     ],
     'otp' => [
         'resend_cooldown' => (int) env('OTP_RESEND_COOLDOWN', 60),
+        'password_reset_resend_cooldown' => (int) env('PASSWORD_RESET_RESEND_COOLDOWN', 90),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
