@@ -170,7 +170,7 @@
     <footer class="border-t border-stone-200/70">
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
             <div><a href="#" class="text-base font-bold tracking-tight">DiskarTech<span class="text-red-700">.</span></a><p class="mt-2 text-xs leading-6 text-slate-500">Local work. Your kind of schedule.<br>Pinamalayan, Oriental Mindoro</p></div>
-            <div class="flex flex-wrap gap-x-5 gap-y-3 text-xs font-medium text-slate-600"><a href="#features" class="hover:text-red-700">Features</a><a href="#how-it-works" class="hover:text-red-700">How it works</a><a href="{{ route('admin.login') }}" class="hover:text-red-700">Admin portal</a></div>
+            <div class="flex flex-wrap gap-x-5 gap-y-3 text-xs font-medium text-slate-600"><a href="#features" class="hover:text-red-700">Features</a><a href="#how-it-works" class="hover:text-red-700">How it works</a><a href="{{ route('legal.privacy') }}" class="hover:text-red-700">Privacy Policy</a><a href="{{ route('legal.terms') }}" class="hover:text-red-700">Terms</a><a href="{{ route('legal.cookies') }}" class="hover:text-red-700">Cookies</a><a href="{{ route('admin.login') }}" class="hover:text-red-700">Admin portal</a></div>
             <p class="text-[11px] text-stone-500">&copy; {{ now()->year }} DiskarTech &middot; Capstone Project</p>
         </div>
     </footer>

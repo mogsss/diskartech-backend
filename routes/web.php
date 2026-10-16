@@ -33,6 +33,10 @@ Route::get('/', function () {
 });
 
 // Public Working Student Certificate Viewer & PDF Print Route
+Route::view('/privacy-policy', 'legal.policy', ['policyKey' => 'privacy'])->name('legal.privacy');
+Route::view('/terms-and-conditions', 'legal.policy', ['policyKey' => 'terms'])->name('legal.terms');
+Route::view('/cookie-policy', 'legal.policy', ['policyKey' => 'cookies'])->name('legal.cookies');
+
 Route::get('/subscription/return', [SubscriptionController::class, 'returned'])->name('subscription.return');
 
 Route::get('/certificate/{id}/view', [CertificateWebController::class, 'viewCertificate'])->name('certificate.view');
