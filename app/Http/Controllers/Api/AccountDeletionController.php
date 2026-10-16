@@ -51,7 +51,7 @@ class AccountDeletionController extends Controller
                 DB::table('account_deletion_codes')->updateOrInsert(['user_id' => $user->id], [
                     'session_hash' => hash('sha256', $request->bearerToken()),
                     'code_hash' => hash_hmac('sha256', $code, config('app.key')),
-                    'expires_at' => now()->addMinutes(10), 'attempts' => 0, 'sent_at' => now(),
+                    'expires_at' => now()->addMinutes(5), 'attempts' => 0, 'sent_at' => now(),
                 ]);
                 return true;
             });
@@ -65,7 +65,7 @@ class AccountDeletionController extends Controller
             return response()->json(['message' => 'Unable to send the deletion code right now. Please try again later.'], 503)->header('Cache-Control', 'no-store');
         }
         if (!$sent) return response()->json(['message' => 'Please wait before requesting another deletion code.', 'retry_after' => 60], 429)->header('Retry-After', 60)->header('Cache-Control', 'no-store');
-        return response()->json(['message' => 'A deletion code was sent to your registered email. It expires in 10 minutes.', 'expires_in' => 600, 'retry_after' => 60])->header('Cache-Control', 'no-store');
+        return response()->json(['message' => 'A deletion code was sent to your registered email. It expires in 5 minutes.', 'expires_in' => 300, 'retry_after' => 60])->header('Cache-Control', 'no-store');
     }
 
     public function destroy(Request $request, AccountDeletion $deletion)

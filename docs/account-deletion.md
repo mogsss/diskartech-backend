@@ -6,7 +6,7 @@ Settings > Account > Delete account and the Privacy Policy's related-information
 
 - `POST /api/user/deletion-code` sends a purpose-specific email to the authenticated account's stored email. The request cannot choose a recipient. Existing Gmail OTP configuration is reused.
 - `DELETE /api/user/account` requires the six-digit `code`, `confirmation: "DELETE"`, and `acknowledged: true`.
-- Both endpoints require a real Sanctum personal access token and a mobile role. The code is bound to that account and token, stored as an HMAC, expires after ten minutes, and is locked after five failed attempts. There is one active code per account. Resending replaces the old challenge and requires at least sixty seconds; at most three sends are allowed per hour per account, across devices.
+- Both endpoints require a real Sanctum personal access token and a mobile role. The code is bound to that account and token, stored as an HMAC, expires after five minutes, and is locked after five failed attempts. There is one active code per account. Resending replaces the old challenge and requires at least sixty seconds; at most three sends are allowed per hour per account, across devices.
 - Codes and provider error payloads are never returned or logged. Failed delivery leaves the previous challenge unchanged. Invalid confirmation cannot modify account records. Deletion, anonymization, token revocation, and challenge consumption happen in one database transaction.
 
 ## Result and retained records

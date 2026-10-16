@@ -63,18 +63,18 @@ class GmailOtpMailer
             Cache::put($cacheKey, $accessToken, max(1, $expiresIn - 60));
         }
 
-        $expiryMinutes = $passwordReset || $accountDeletion ? 10 : max(1, (int) config('services.otp.expiry_minutes', 5));
+        $expiryMinutes = $passwordReset || $accountDeletion ? 5 : max(1, (int) config('services.otp.expiry_minutes', 5));
         $purpose = $accountDeletion ? 'permanently delete your DiskarTech account' : ($passwordReset ? 'reset your DiskarTech password' : 'verify your email address');
 
         $message = (new Email)
             ->from(new Address($settings['from_address'], 'DiskarTech'))
             ->to($recipient)
-            ->subject($accountDeletion ? 'Confirm Account Deletion | DiskarTech' : ($passwordReset ? 'Reset Your Password | DiskarTech' : 'Verify Your Email Address | DiskarTech'))
+            ->subject($accountDeletion ? 'Confirm Account Deletion' : ($passwordReset ? 'Reset Your Password' : 'Verify Your Email Address'))
             ->text("Hello,\n\nYour DiskarTech verification code is: {$otp}\n\n"
                 ."Use this code to {$purpose}. This code expires in {$expiryMinutes} minutes. Do not share it with anyone.\n\n"
                 ."If you did not request this code, please ignore this email.\n\nThe DiskarTech Team")
             ->html('<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px">'
-                .'<h1 style="color:#4f46e5">DiskarTech</h1><p>Hello,</p>'
+                .'<h1 style="color:#DC2626">DiskarTech</h1><p>Hello,</p>'
                 .'<p>Enter this verification code to '.$purpose.':</p>'
                 .'<p style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#4f46e5">'.$otp.'</p>'
                 .'<p>This code expires in '.$expiryMinutes.' minutes. Do not share it with anyone.</p>'

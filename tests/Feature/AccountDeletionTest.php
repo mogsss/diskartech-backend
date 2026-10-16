@@ -94,7 +94,7 @@ class AccountDeletionTest extends TestCase
 
     private function send(string $token): void
     {
-        $this->asToken($token)->postJson('/api/user/deletion-code')->assertOk()->assertJsonPath('expires_in', 600)->assertHeader('Cache-Control', 'no-store, private');
+        $this->asToken($token)->postJson('/api/user/deletion-code')->assertOk()->assertJsonPath('expires_in', 300)->assertHeader('Cache-Control', 'no-store, private');
     }
 
     private function payload(array $overrides = []): array
@@ -163,9 +163,17 @@ class AccountDeletionTest extends TestCase
         $this->assertSame(5, (int) DB::table('account_deletion_codes')->where('user_id', $user->id)->value('attempts'));
         $this->asToken($token)->deleteJson('/api/user/account', $this->payload())->assertUnprocessable();
         $this->travel(61)->seconds(); $this->send($token);
-        $this->travel(10)->minutes();
+        $this->travel(5)->minutes();
         $this->asToken($token)->deleteJson('/api/user/account', $this->payload())->assertUnprocessable();
         $this->assertNotNull(User::find($user->id));
+    }
+
+    public function test_deletion_code_is_still_valid_just_before_five_minutes(): void
+    {
+        [, $token] = $this->account();
+        $this->send($token);
+        $this->travel(299)->seconds();
+        $this->asToken($token)->deleteJson('/api/user/account', $this->payload())->assertOk();
     }
 
     public function test_resending_has_account_wide_cooldown_and_hourly_limit_and_rotates_the_code(): void
@@ -212,8 +220,8 @@ class AccountDeletionTest extends TestCase
             preg_match('/verification code is: ([0-9]{6})/', $mime, $match);
             $sentCode = $match[1] ?? null;
             return $request->hasHeader('Authorization', 'Bearer fixture-access') && $sentCode
-                && str_contains($mime, 'Confirm Account Deletion | DiskarTech')
-                && str_contains($mime, 'To: '.$user->email) && str_contains($mime, '10 minutes');
+                && str_contains($mime, 'Subject: Confirm Account Deletion')
+                && str_contains($mime, 'To: '.$user->email) && str_contains($mime, '5 minutes');
         });
         $this->assertSame(hash_hmac('sha256', $sentCode, config('app.key')), DB::table('account_deletion_codes')->where('user_id', $user->id)->value('code_hash'));
         $this->asToken($token)->deleteJson('/api/user/account', $this->payload(['code' => $sentCode]))->assertOk();

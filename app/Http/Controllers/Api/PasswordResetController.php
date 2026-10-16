@@ -61,7 +61,7 @@ class PasswordResetController extends Controller
                 $stage = 'save_challenge';
                 DB::table('mobile_password_resets')->updateOrInsert(['email' => $email], [
                     'user_id' => $user->id, 'code_hash' => hash_hmac('sha256', $code, config('app.key')),
-                    'expires_at' => now()->addMinutes(10), 'attempts' => 0,
+                    'expires_at' => now()->addMinutes(5), 'attempts' => 0,
                     'reset_token_hash' => null, 'reset_expires_at' => null, 'sent_at' => now(),
                 ]);
             });

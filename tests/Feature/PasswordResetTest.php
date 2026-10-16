@@ -115,11 +115,19 @@ class PasswordResetTest extends TestCase
     {
         $user = $this->account();
         $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk();
-        $this->travel(10)->minutes();
+        $this->travel(5)->minutes();
         $this->postJson('/api/password/verify-code', ['email' => $user->email, 'code' => $this->code])->assertUnprocessable();
         $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk();
         $this->postJson('/api/password/verify-code', ['email' => $user->email, 'code' => $this->code])->assertOk();
         $this->postJson('/api/password/verify-code', ['email' => $user->email, 'code' => $this->code])->assertUnprocessable();
+    }
+
+    public function test_otp_is_still_valid_just_before_five_minutes(): void
+    {
+        $user = $this->account();
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk();
+        $this->travel(299)->seconds();
+        $this->postJson('/api/password/verify-code', ['email' => $user->email, 'code' => $this->code])->assertOk();
     }
 
     public function test_reset_requires_a_verified_unexpired_token_bound_to_the_same_account(): void
@@ -213,7 +221,7 @@ class PasswordResetTest extends TestCase
         Http::assertSent(function ($request) {
             if (!str_contains($request->url(), 'messages/send')) return false;
             $raw = base64_decode(strtr($request['raw'], '-_', '+/'));
-            return str_contains($raw, 'Reset Your Password | DiskarTech') && str_contains($raw, 'reset your DiskarTech password') && str_contains($raw, '10 minutes');
+            return str_contains($raw, 'Subject: Reset Your Password') && str_contains($raw, 'reset your DiskarTech password') && str_contains($raw, '5 minutes');
         });
     }
 }
