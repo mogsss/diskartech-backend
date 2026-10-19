@@ -168,9 +168,7 @@
             </div>
 
             <figure class="min-w-0">
-                <div class="landing-phone-stage relative flex min-h-[560px] items-center justify-center overflow-hidden rounded-[32px] bg-[#EEEAE3] px-4 py-10 sm:min-h-[600px] sm:rounded-[40px]" data-phone-stage aria-hidden="true">
-                    <div class="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80"></div>
-                    <div class="absolute left-1/2 top-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E7E1D7]"></div>
+                <div class="landing-phone-stage relative flex min-h-[560px] items-center justify-center overflow-hidden px-4 py-10 sm:min-h-[600px]" data-phone-stage aria-hidden="true">
                     <span class="absolute left-6 top-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-500">Opportunity, closer.</span>
 
                     <div class="landing-phone-shadow"></div>
