@@ -4,6 +4,8 @@ The mobile chat's plus button opens Photo and File choices. One attachment can b
 
 The file is uploaded only when Send is pressed. A failed message send preserves the composer draft and uploaded attachment ID for retry. Firestore writes the message and conversation preview in one batch. Retrying an unchanged draft uses the same message ID; message lists and push notifications use Photo or File: filename as the preview for an attachment-only message.
 
+DOCX inspection uses `ZipArchive` so extensionless Linux/PHP temporary upload paths are supported. It reads archive metadata without extracting the document and retains the entry-count, expanded-size, required Word-entry, and macro checks. The Docker image already installs PHP's `zip` extension; local PHP installations must enable it too. Attachment validation errors are shown directly in the mobile error modal while the draft is retained.
+
 ## Storage and access
 
 Production reuses `UPLOAD_STORAGE=cloudinary` and the existing Cloudinary credentials. Attachments are authenticated raw assets under `diskartech/chats/<chat_id>`. Their ownership and permanent storage reference are saved in SQL, while Firestore stores only the attachment UUID, filename, MIME type, kind, and size. Cloudinary delivery URLs, keys, and temporary application URLs are never stored in a message.

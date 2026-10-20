@@ -157,6 +157,51 @@ class ChatAttachmentsTest extends TestCase
         } finally { if (file_exists($path)) unlink($path); }
     }
 
+    private function docxUpload(array $entries): UploadedFile
+    {
+        $temp = tempnam(sys_get_temp_dir(), 'chat-docx-');
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($temp, \ZipArchive::OVERWRITE));
+        foreach ($entries as $name => $contents) $zip->addFromString($name, $contents);
+        $this->assertTrue($zip->close());
+        // PHP uploads on Linux commonly have no extension, unlike Windows .tmp files.
+        $path = dirname($temp).'/'.pathinfo($temp, PATHINFO_FILENAME).'-upload';
+        $this->assertFileDoesNotExist($path);
+        $this->assertTrue(rename($temp, $path));
+        $this->beforeApplicationDestroyed(static function () use ($path) {
+            if (is_file($path)) unlink($path);
+        });
+        return new UploadedFile($path, 'IDs.docx', null, null, true);
+    }
+
+    public function test_docx_uploads_with_extensionless_server_tempnames_are_supported(): void
+    {
+        $file = $this->docxUpload([
+            '[Content_Types].xml' => '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>',
+            'word/document.xml' => '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:document>',
+            'word/media/image1.png' => base64_decode(self::PNG),
+        ]);
+        $this->assertSame('', pathinfo($file->getPathname(), PATHINFO_EXTENSION));
+        $metadata = $this->upload($file);
+        $this->assertSame('IDs.docx', $metadata['filename']);
+        $this->assertSame('application/vnd.openxmlformats-officedocument.wordprocessingml.document', $metadata['mime_type']);
+    }
+
+    public function test_docx_checks_still_reject_non_word_archives_macros_and_excessive_expanded_size(): void
+    {
+        Sanctum::actingAs($this->student);
+        $word = ['[Content_Types].xml' => '<Types/>', 'word/document.xml' => '<document/>'];
+        foreach ([
+            ['[Content_Types].xml' => '<Types/>', 'other.txt' => 'Not a Word document'],
+            [...$word, 'word/vbaProject.bin' => 'macro payload'],
+            [...$word, 'word/media/large.bin' => str_repeat('x', 50 * 1024 * 1024)],
+        ] as $entries) {
+            $this->post('/api/chats/'.self::CHAT.'/attachments', ['file' => $this->docxUpload($entries)], ['Accept' => 'application/json'])
+                ->assertUnprocessable()->assertJsonValidationErrors('file');
+        }
+        $this->assertSame(0, ChatAttachment::count());
+    }
+
     public function test_foreign_or_noncanonical_chat_ids_and_client_spoofed_ownership_are_rejected(): void
     {
         Sanctum::actingAs($this->outsider);

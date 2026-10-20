@@ -43,18 +43,29 @@ class ChatAttachmentStorage
 
     private function isDocx(string $path): bool
     {
+        $archive = null;
         try {
-            // Inspect ZIP entries without extracting or executing the document.
-            $archive = new \PharData($path, 0, null, \Phar::ZIP);
-            if (!isset($archive['[Content_Types].xml'], $archive['word/document.xml']) || count($archive) > 2048) return false;
-            $total = 0; $entries = 0;
-            foreach (new \RecursiveIteratorIterator($archive) as $entry) {
-                $total += $entry->getSize();
-                $entries++;
-                if ($entries > 2048 || $total > 50 * 1024 * 1024 || str_ends_with(strtolower($entry->getFilename()), 'vbaproject.bin')) return false;
+            // PHP's Linux upload paths have no extension; PharData rejects those
+            // even for valid DOCX bytes. ZipArchive reads the actual ZIP contents.
+            $zip = new \ZipArchive();
+            if ($zip->open($path, \ZipArchive::RDONLY) !== true) return false;
+            $archive = $zip;
+            if ($archive->locateName('[Content_Types].xml') === false
+                || $archive->locateName('word/document.xml') === false
+                || $archive->numFiles > 2048) return false;
+            $total = 0;
+            // Read entry metadata only: no extraction or document execution.
+            for ($index = 0; $index < $archive->numFiles; $index++) {
+                $entry = $archive->statIndex($index);
+                if ($entry === false) return false;
+                $total += $entry['size'];
+                if ($total > 50 * 1024 * 1024
+                    || ($entry['encryption_method'] ?? 0) !== 0
+                    || str_ends_with(strtolower($entry['name']), 'vbaproject.bin')) return false;
             }
             return true;
         } catch (\Throwable) { return false; }
+        finally { $archive?->close(); }
     }
 
     public function store(UploadedFile $file, string $chatId, string $extension): array
