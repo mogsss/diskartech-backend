@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AccountDeletion;
 use App\Support\PlainTextInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -78,10 +80,43 @@ class UserController extends Controller
                 'reference' => match ($user->role) { 'student' => $profile?->student_school_name, 'employer' => $profile?->employer_name, default => null },
                 'fields' => $fields,
                 'verificationUrl' => route('admin.verification', ['status' => 'all', 'role' => $user->role, 'search' => $user->email], false),
+                'deletionUrl' => route('admin.users.destroy', $user->id, false),
             ]);
             return $user;
         });
         return view('admin.users', compact('users', 'totalAccounts', 'roleCounts', 'verifiedAccounts', 'search', 'role', 'verification'));
+    }
+
+    public function destroy(Request $request, int $id, AccountDeletion $deletion)
+    {
+        if (is_string($request->input('reason'))) $request->merge(['reason' => PlainTextInput::normalize($request->input('reason'))]);
+        $data = $request->validate([
+            'reason' => ['bail', 'required', 'string', 'min:5', 'max:1000', function ($attribute, $value, $fail) {
+                if (PlainTextInput::containsMarkup($value)) $fail('The deletion reason must contain plain text only.');
+            }],
+            'confirmation' => ['required', 'string', Rule::in(['DELETE'])],
+            'acknowledged' => ['accepted'],
+            'current_password' => ['required', 'string', 'current_password:admin'],
+        ]);
+
+        DB::transaction(function () use ($request, $id, $data, $deletion) {
+            // Resolve only mobile accounts under the same lock used by self-deletion.
+            // A deleted account or a repeated request cannot create another audit.
+            $user = User::whereIn('role', array_keys(self::PROFILES))->lockForUpdate()->findOrFail($id);
+            DB::table('admin_user_deletions')->insert([
+                'admin_id' => $request->user('admin')->id,
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+                'reason' => $data['reason'],
+                'created_at' => now(),
+            ]);
+            $deletion->delete($user, byAdmin: true);
+        });
+
+        $message = 'Account deleted. Access has been revoked and personal profile details have been removed.';
+        $request->session()->flash('success', $message);
+        if ($request->expectsJson()) return response()->json(['message' => $message]);
+        return to_route('admin.users');
     }
 
     private function filterVerification(Builder $query, bool $verified): Builder

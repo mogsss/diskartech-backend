@@ -2,7 +2,7 @@
     @push('header-title') Users @endpush
     <style>[x-cloak] { display: none !important; }</style>
     <div class="mx-auto w-full max-w-7xl space-y-6"
-        x-data="{ open: false, selected: null, returnFocus: null, previousOverflow: '', showDetails(data, button) { this.selected = data; this.returnFocus = button; this.previousOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; this.open = true; this.$nextTick(() => requestAnimationFrame(() => { this.$refs.userBody.scrollTop = 0; this.$refs.closeDetails.focus(); })); }, close() { this.open = false; document.body.style.overflow = this.previousOverflow; this.$nextTick(() => this.returnFocus?.focus()); }, trap(event) { const items = [...this.$refs.userDialog.querySelectorAll('button, a[href]')].filter(el => el.getClientRects().length); if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); } else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); } }, destroy() { if (this.open) document.body.style.overflow = this.previousOverflow; } }"
+        x-data="adminUserAccounts()"
         @keydown.escape.window="if (open) close()">
         <section>
             <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-red-700">Registered accounts</p>
@@ -10,6 +10,7 @@
             <p class="mt-2 text-sm leading-6 text-slate-500">View student, employer, and household profiles and their verification status.</p>
         </section>
         @if($errors->any())<div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{{ $errors->first() }}</div>@endif
+        @if(session('success'))<div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{ session('success') }}</div>@endif
         <section class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Overall account totals">
             @foreach(['all' => 'Total accounts', 'student' => 'Students', 'employer' => 'Employers', 'household' => 'Households'] as $type => $label)
                 <a href="{{ route('admin.users', ['role' => $type]) }}" class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm hover:border-red-200 sm:p-5">
@@ -77,11 +78,11 @@
         <div x-show="open" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6" @click.self="close()">
             <section x-ref="userDialog" role="dialog" aria-modal="true" aria-labelledby="user-details-title" @keydown.tab="trap($event)" class="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
                 <header class="flex shrink-0 items-center justify-between gap-4 border-b border-stone-200 p-5 sm:p-6">
-                    <div><p class="mb-1 text-xs font-semibold uppercase tracking-widest text-red-700">Account information</p><h2 id="user-details-title" class="text-xl font-bold text-slate-900">User details</h2></div>
-                    <button x-ref="closeDetails" type="button" @click="close()" aria-label="Close user details" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-slate-700 hover:bg-stone-100"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2" stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg></button>
+                    <div><p class="mb-1 text-xs font-semibold uppercase tracking-widest text-red-700">Account information</p><h2 id="user-details-title" class="text-xl font-bold text-slate-900" x-text="deleteMode ? 'Delete account' : 'User details'">User details</h2></div>
+                    <button x-ref="closeDetails" type="button" @click="close()" :disabled="submitting" aria-label="Close user details" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-slate-700 hover:bg-stone-100 disabled:opacity-50"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2" stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg></button>
                 </header>
                 <div x-ref="userBody" class="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6">
-                    <template x-if="selected">
+                    <template x-if="selected && !deleteMode">
                         <div>
                             <div class="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-stone-50 p-4"><div class="min-w-0"><h3 class="break-words text-lg font-bold text-slate-900" x-text="selected.name"></h3><p class="mt-2 text-xs text-slate-500"><span x-text="selected.role"></span> · #<span x-text="selected.id"></span></p></div><span class="rounded-lg px-2.5 py-1 text-xs font-semibold" :class="selected.verified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'" x-text="selected.verified ? 'Verified' : 'Unverified'"></span></div>
                             <p x-show="!selected.hasProfile" class="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">This account has not completed its profile yet.</p>
@@ -91,12 +92,138 @@
                             </dl>
                         </div>
                     </template>
+                    <form id="delete-user-form" x-ref="deleteForm" x-show="deleteMode" x-cloak method="POST" :action="selected?.deletionUrl" @submit.prevent="submitDeletion()">
+                        @csrf
+                        @method('DELETE')
+                        <fieldset :disabled="submitting" class="space-y-5">
+                            <legend class="sr-only">Confirm account deletion</legend>
+                            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+                                <p class="font-semibold">Permanently delete <span class="break-words" x-text="selected?.name"></span> (account #<span x-text="selected?.id"></span>)?</p>
+                                <p class="mt-2">This cannot be undone. All login sessions will be revoked, personal profile details removed, job posts closed, and active applications or engagements ended.</p>
+                                <p class="mt-2">Shared work, payment, chat, review, and safety records are retained. Deletion does not issue a refund or settle outstanding obligations.</p>
+                            </div>
+                            <div x-show="deletionErrors.length" x-ref="deletionError" tabindex="-1" role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                                <template x-for="(message, index) in deletionErrors" :key="index"><p x-text="message"></p></template>
+                            </div>
+                            <div>
+                                <label for="deletion-reason" class="mb-2 block text-sm font-semibold text-slate-700">Reason for deletion</label>
+                                <textarea id="deletion-reason" x-ref="deletionReason" name="reason" required minlength="5" maxlength="1000" rows="3" aria-describedby="deletion-reason-help" class="w-full rounded-xl border border-stone-300 p-3 text-sm focus:outline-red-700"></textarea>
+                                <p id="deletion-reason-help" class="mt-1 text-xs text-slate-500">Recorded with your admin ID for accountability. Use plain text, 5–1,000 characters.</p>
+                            </div>
+                            <div>
+                                <label for="deletion-confirmation" class="mb-2 block text-sm font-semibold text-slate-700">Type DELETE to confirm</label>
+                                <input id="deletion-confirmation" name="confirmation" type="text" required pattern="DELETE" autocomplete="off" spellcheck="false" class="min-h-[44px] w-full rounded-xl border border-stone-300 px-3 text-sm focus:outline-red-700">
+                            </div>
+                            <div>
+                                <label for="deletion-password" class="mb-2 block text-sm font-semibold text-slate-700">Your admin password</label>
+                                <input id="deletion-password" name="current_password" type="password" required autocomplete="current-password" class="min-h-[44px] w-full rounded-xl border border-stone-300 px-3 text-sm focus:outline-red-700">
+                            </div>
+                            <label class="flex cursor-pointer items-start gap-3 text-sm leading-6 text-slate-700">
+                                <input name="acknowledged" type="checkbox" value="1" required class="mt-1 h-4 w-4 shrink-0 accent-red-700">
+                                <span>I understand the consequences and authorize permanent deletion of this account.</span>
+                            </label>
+                        </fieldset>
+                    </form>
                 </div>
                 <footer class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-stone-200 bg-stone-50 p-4">
-                    <button type="button" @click="close()" class="min-h-[44px] rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-stone-100">Close</button>
-                    <a :href="selected?.verificationUrl" class="inline-flex min-h-[44px] items-center rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800">View documents</a>
+                    <button x-show="!deleteMode" x-ref="deleteButton" type="button" @click="confirmDeletion()" class="mr-auto min-h-[44px] rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50">Delete account</button>
+                    <button x-show="!deleteMode" type="button" @click="close()" class="min-h-[44px] rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-stone-100">Close</button>
+                    <a x-show="!deleteMode" :href="selected?.verificationUrl" class="inline-flex min-h-[44px] items-center rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800">View documents</a>
+                    <button x-show="deleteMode" type="button" @click="cancelDeletion()" :disabled="submitting" class="min-h-[44px] rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-stone-100 disabled:opacity-50">Cancel</button>
+                    <button x-show="deleteMode" type="submit" form="delete-user-form" :disabled="submitting" class="min-h-[44px] rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50" x-text="submitting ? 'Deleting…' : 'Permanently delete account'">Permanently delete account</button>
                 </footer>
             </section>
         </div>
     </div>
+    <script>
+        function adminUserAccounts() {
+            return {
+                open: false, selected: null, returnFocus: null, previousOverflow: '',
+                deleteMode: false, submitting: false, deletionErrors: [],
+                showDetails(data, button) {
+                    this.selected = data;
+                    this.returnFocus = button;
+                    this.deleteMode = false;
+                    this.deletionErrors = [];
+                    this.$refs.deleteForm.reset();
+                    this.previousOverflow = document.body.style.overflow;
+                    document.body.style.overflow = 'hidden';
+                    this.open = true;
+                    this.$nextTick(() => requestAnimationFrame(() => {
+                        if (!this.open || this.deleteMode) return;
+                        this.$refs.userBody.scrollTop = 0;
+                        this.$refs.closeDetails.focus();
+                    }));
+                },
+                close() {
+                    if (this.submitting) return;
+                    this.open = false;
+                    this.$refs.deleteForm.reset();
+                    document.body.style.overflow = this.previousOverflow;
+                    this.$nextTick(() => this.returnFocus?.focus());
+                },
+                confirmDeletion() {
+                    this.deleteMode = true;
+                    this.deletionErrors = [];
+                    this.$nextTick(() => requestAnimationFrame(() => {
+                        if (!this.open || !this.deleteMode) return;
+                        this.$refs.userBody.scrollTop = 0;
+                        this.$refs.deletionReason.focus({ preventScroll: true });
+                    }));
+                },
+                cancelDeletion() {
+                    if (this.submitting) return;
+                    this.$refs.deleteForm.reset();
+                    this.deleteMode = false;
+                    this.deletionErrors = [];
+                    this.$nextTick(() => requestAnimationFrame(() => {
+                        if (this.open && !this.deleteMode) this.$refs.deleteButton.focus();
+                    }));
+                },
+                async submitDeletion() {
+                    if (this.submitting || !this.selected || !this.$refs.deleteForm.reportValidity()) return;
+                    const body = new FormData(this.$refs.deleteForm);
+                    this.submitting = true;
+                    this.deletionErrors = [];
+                    try {
+                        const response = await fetch(this.selected.deletionUrl, {
+                            method: 'POST', body, credentials: 'same-origin',
+                            headers: { Accept: 'application/json' },
+                        });
+                        if (response.ok) {
+                            window.location.reload();
+                            return;
+                        }
+                        if (response.status === 422) {
+                            const data = await response.json();
+                            this.deletionErrors = Object.values(data.errors ?? {}).flat();
+                        } else {
+                            this.deletionErrors = [response.status === 401 || response.status === 419
+                                ? 'Your admin session expired. Reload the page and sign in again.'
+                                : response.status === 404
+                                    ? 'This account is no longer available. Reload the user list.'
+                                    : response.status === 429
+                                        ? 'Too many deletion attempts. Wait a minute before trying again.'
+                                        : 'Account deletion could not be completed. Please try again.'];
+                        }
+                    } catch {
+                        this.deletionErrors = ['Could not confirm the result. Check your connection and reload the user list before retrying.'];
+                    }
+                    this.submitting = false;
+                    this.$refs.deleteForm.elements.current_password.value = '';
+                    this.$nextTick(() => this.$refs.deletionError.focus());
+                },
+                trap(event) {
+                    const items = [...this.$refs.userDialog.querySelectorAll('button, a[href], input:not([type="hidden"]), textarea')]
+                        .filter(el => !el.matches(':disabled') && el.getClientRects().length);
+                    if (event.shiftKey && document.activeElement === items[0]) {
+                        event.preventDefault(); items.at(-1)?.focus();
+                    } else if (!event.shiftKey && document.activeElement === items.at(-1)) {
+                        event.preventDefault(); items[0]?.focus();
+                    }
+                },
+                destroy() { if (this.open) document.body.style.overflow = this.previousOverflow; },
+            };
+        }
+    </script>
 </x-admin-layout>

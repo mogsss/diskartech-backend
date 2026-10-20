@@ -46,6 +46,9 @@ php artisan migrate --path=database/migrations/2026_10_13_120000_create_subscrip
 # Account deletion needs persistent, single-use email challenges and file cleanup records.
 php artisan migrate --path=database/migrations/2026_10_16_120000_create_account_deletion_tables.php --force --no-interaction
 
+# Admin account deletion must keep its audit record in the deletion transaction.
+php artisan migrate --path=database/migrations/2026_10_20_120000_create_admin_user_deletions_table.php --force --no-interaction
+
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true

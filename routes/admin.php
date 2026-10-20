@@ -33,6 +33,7 @@ Route::middleware(['auth:admin', EnsureSingleAdminSession::class])->group(functi
 
     // Users Route (Nakalipat na sa UserController)
     Route::get('/admin/users', [UserController::class, 'usersIndex'])->name('admin.users');
+    Route::delete('/admin/users/{id}', [UserController::class, 'destroy'])->whereNumber('id')->middleware('throttle:5,1')->name('admin.users.destroy');
 
     Route::get('/admin/reviews', [ReviewController::class, 'index'])->name('admin.reviews');
     Route::get('/admin/account', [AccountController::class, 'edit'])->name('admin.account');

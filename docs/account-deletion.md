@@ -1,6 +1,14 @@
-# Mobile account deletion
+# Account deletion
 
 Settings > Account > Delete account and the Privacy Policy's related-information link open the mobile confirmation screen. Students, employers and household accounts may delete, including Google accounts and accounts with ongoing work or a Pro plan.
+
+## Admin deletion
+
+Admin > Users > View details > Delete account opens a separate confirmation form. An authenticated administrator with a valid admin session must provide a plain-text reason (5–1,000 characters), type `DELETE`, acknowledge the consequences, and enter their current admin password. No email OTP from the user is required. `DELETE /admin/users/{id}` accepts only student, employer, and household accounts and is limited to five attempts per minute per admin.
+
+The admin controller locks the target account and calls the same `AccountDeletion` service as the mobile flow. Audit insertion, anonymization, token revocation, and cleanup scheduling share one database transaction; failure rolls all of them back. A repeated request cannot delete the account again. Active-work termination records identify administrative deletion without exposing the admin's private reason.
+
+`admin_user_deletions` stores the acting admin ID, retained user ID, original user role, reason, and creation timestamp. It does not copy the deleted user's name, email, password, or OTP. Admin and user IDs are historical references without cascading foreign keys; one audit is allowed per deleted user. The admin UI reports success after confirmation and refreshes the user list. Admin accounts themselves cannot be deleted through this action.
 
 ## Confirmation
 
@@ -26,6 +34,12 @@ The new migration is `2026_10_16_120000_create_account_deletion_tables.php`. Ren
 php artisan migrate --path=database/migrations/2026_10_16_120000_create_account_deletion_tables.php
 ```
 
+Admin deletion also requires the audit migration below. Render's entrypoint runs it before serving traffic, including when the general migration batch encounters an older failure:
+
+```powershell
+php artisan migrate --path=database/migrations/2026_10_20_120000_create_admin_user_deletions_table.php
+```
+
 Profile file references are saved in `account_deletion_files` within the deletion transaction. A background loop in the Render entrypoint retries batches every five minutes using:
 
 ```powershell
@@ -39,3 +53,5 @@ Do not physically remove anonymous account/profile placeholders without reviewin
 ## Verification
 
 Run `php artisan test --filter=AccountDeletionTest` for role/authentication boundaries, code/session binding, expiry, attempt/send limits, mail failures, transaction rollback, active work/Pro handling, anonymization, session revocation, shared-history preservation, and storage cleanup/retries. Existing password, OTP, Cloudinary, subscription, and admin-user tests cover the shared components affected by this change.
+
+Run `php artisan test --filter=AdminUserDeletionTest` for admin authentication and session expiry, role boundaries, password/confirmation validation, throttling, audit attribution, atomic rollback, repeated requests, and shared cleanup. A new mobile APK is not needed for this admin-only feature.

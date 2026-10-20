@@ -13,8 +13,8 @@ class AccountDeletion
     private const PROFILE_FILES = ['avatar', 'profile_picture', 'student_resume', 'school_id', 'coe', 'valid_id_path', 'employer_certificate_path'];
     private const NAMES = ['student_name', 'student_school_name', 'employer_name', 'hirer_name', 'household_name'];
 
-    // The caller holds the account lock and verifies the deletion challenge.
-    public function delete(User $user): void
+    // The caller holds the account lock and verifies the owner challenge or admin confirmation.
+    public function delete(User $user, bool $byAdmin = false): void
     {
         $studentId = DB::table('students')->where('user_id', $user->id)->value('id');
         $jobIds = DB::table('available_jobs')->where('user_id', $user->id)->pluck('id');
@@ -24,7 +24,9 @@ class AccountDeletion
         });
         (clone $applications)->whereIn('status', ['accepted', 'hired'])->update([
             'status' => 'terminated', 'terminated_at' => now(),
-            'termination_reason' => 'A participant permanently deleted their DiskarTech account. Outstanding obligations must be settled directly.',
+            'termination_reason' => $byAdmin
+                ? 'A participant\'s DiskarTech account was permanently deleted by an administrator. Outstanding obligations must be settled directly.'
+                : 'A participant permanently deleted their DiskarTech account. Outstanding obligations must be settled directly.',
             'interview_ended_at' => now(), 'updated_at' => now(),
         ]);
         (clone $applications)->whereIn('status', ['pending', 'viewed', 'interview'])->update([
@@ -58,6 +60,7 @@ class AccountDeletion
         }
 
         if (Schema::hasTable('mobile_password_resets')) DB::table('mobile_password_resets')->where('user_id', $user->id)->delete();
+        DB::table('account_deletion_codes')->where('user_id', $user->id)->delete();
         $user->tokens()->delete();
         // Retain an anonymous relational placeholder rather than cascade-delete
         // the other participant's contracts, reviews, payment or safety records.
