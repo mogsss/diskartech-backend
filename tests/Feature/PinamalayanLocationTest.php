@@ -20,6 +20,10 @@ class PinamalayanLocationTest extends TestCase
         parent::setUp();
         config(['database.default' => 'sqlite', 'database.connections.sqlite.url' => null, 'database.connections.sqlite.database' => ':memory:']);
         Schema::create('users', function (Blueprint $table) { $table->id(); $table->string('email')->nullable(); });
+        Schema::create('available_jobs', function (Blueprint $table) {
+            $table->id(); $table->unsignedBigInteger('user_id');
+            $table->double('latitude')->nullable(); $table->double('longitude')->nullable(); $table->timestamps();
+        });
         foreach (['students', 'employers', 'households'] as $table) {
             Schema::create($table, function (Blueprint $blueprint) {
                 $blueprint->id(); $blueprint->unsignedBigInteger('user_id');

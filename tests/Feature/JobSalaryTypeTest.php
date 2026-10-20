@@ -43,7 +43,8 @@ class JobSalaryTypeTest extends TestCase
             $pdo->sqliteCreateFunction($sql, $php, 1);
         }
 
-        Schema::create('users', fn (Blueprint $table) => $table->id());
+        // Posting locks a persisted owner and the User scope excludes deleted roles.
+        Schema::create('users', function (Blueprint $table) { $table->id(); $table->string('role'); });
         foreach (['employers', 'households'] as $name) {
             Schema::create($name, function (Blueprint $table) {
                 $table->id();
@@ -92,6 +93,7 @@ class JobSalaryTypeTest extends TestCase
 
     private function login(string $role, bool $verified = true): void
     {
+        DB::table('users')->insert(['id' => 1, 'role' => $role]);
         $user = new User;
         $user->id = 1;
         $user->role = $role;

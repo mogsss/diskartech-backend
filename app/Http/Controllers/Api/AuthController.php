@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\Student;
 use App\Models\Employer;
 use App\Models\Household;
+use App\Models\Jobs;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -591,7 +593,7 @@ class AuthController extends Controller
             if ($request->filled('longitude')) $updateData['longitude'] = $request->longitude;
             if ($request->filled('contact_number')) $updateData['contact_number'] = $request->contact_number;
 
-            $employer->update($updateData);
+            $this->updateHirerProfile($employer, $updateData);
 
             return response()->json([
                 'status' => 'success',
@@ -615,7 +617,7 @@ class AuthController extends Controller
             if ($request->filled('contact_number')) $updateData['cp_number'] = $request->contact_number;
             if ($request->filled('cp_number')) $updateData['cp_number'] = $request->cp_number;
 
-            $household->update($updateData);
+            $this->updateHirerProfile($household, $updateData);
 
             return response()->json([
                 'status' => 'success',
@@ -626,6 +628,26 @@ class AuthController extends Controller
         }
 
         return response()->json(['status' => 'error', 'message' => 'Invalid user role'], 400);
+    }
+
+    private function updateHirerProfile(Model $profile, array $attributes): void
+    {
+        DB::transaction(function () use ($profile, $attributes) {
+            $profile->update($attributes);
+
+            // Job maps and Nearby use the job's coordinates; address labels use
+            // the owner's profile. Keep both in sync, including older posts.
+            // Text-only edits must not replace an existing job pin.
+            if (!isset($attributes['latitude'], $attributes['longitude'])) return;
+
+            Jobs::where('user_id', $profile->user_id)
+                ->where(function ($query) use ($attributes) {
+                    $query->whereNull('latitude')->orWhereNull('longitude')
+                        ->orWhere('latitude', '<>', $attributes['latitude'])
+                        ->orWhere('longitude', '<>', $attributes['longitude']);
+                })
+                ->update(['latitude' => $attributes['latitude'], 'longitude' => $attributes['longitude']]);
+        });
     }
 
     // ==========================================

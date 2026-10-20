@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Employer;
+use App\Models\Household;
 use App\Models\Jobs;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -61,6 +62,14 @@ class EmployerJobQuota
     {
         return $this->withOwnerLock($user, function ($owner, $profile) use ($attributes) {
             $this->assertAvailable($owner, $profile);
+            // The controller may have read the location before a concurrent
+            // profile edit. Read it again under the posting transaction's lock.
+            $locationProfile = $profile ?? ($owner->role === 'household'
+                ? Household::where('user_id', $owner->id)->lockForUpdate()->first() : null);
+            if ($locationProfile?->latitude !== null && $locationProfile?->longitude !== null) {
+                $attributes['latitude'] = $locationProfile->latitude;
+                $attributes['longitude'] = $locationProfile->longitude;
+            }
             return Jobs::create($attributes);
         });
     }
