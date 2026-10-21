@@ -38,6 +38,7 @@ class InterviewCallTest extends TestCase
             $table->id(); $table->unsignedBigInteger('job_id'); $table->unsignedBigInteger('student_id');
             $table->string('status');
             foreach (['interview_type', 'interview_date', 'interview_time', 'interview_location'] as $column) $table->string($column)->nullable();
+            $table->timestamp('hired_at')->nullable();
             $table->timestamps();
         });
         (require database_path('migrations/2026_10_10_160000_add_interview_ended_at_to_job_applications.php'))->up();
@@ -274,5 +275,39 @@ class InterviewCallTest extends TestCase
         $this->login(3);
         $this->getJson('/api/applications/27/interview-call')->assertForbidden();
         $this->getJson('/api/applications/999/interview-call')->assertNotFound();
+    }
+
+    public function test_hiring_unlocks_at_the_exact_philippine_interview_start_for_online_and_walk_in(): void
+    {
+        foreach (['employer', 'household'] as $role) foreach (['online', 'walk-in'] as $type) {
+            $this->login(1, $role);
+            DB::table('job_applications')->where('id', 27)->update(['status' => 'interview', 'interview_type' => $type, 'hired_at' => null]);
+            $this->travelTo(Carbon::parse('2026-10-11 09:29:59', 'UTC'));
+            $this->putJson('/api/employer/applications/27/status', ['status' => 'accepted'])
+                ->assertUnprocessable()->assertJsonValidationErrors('interview_time');
+            $this->assertDatabaseHas('job_applications', ['id' => 27, 'status' => 'interview', 'hired_at' => null]);
+            $this->travel(1)->seconds();
+            $this->putJson('/api/employer/applications/27/status', ['status' => 'accepted'])->assertOk();
+            $this->assertDatabaseHas('job_applications', ['id' => 27, 'status' => 'accepted']);
+        }
+    }
+
+    public function test_hire_request_cannot_replace_a_future_saved_interview_with_past_fields(): void
+    {
+        $this->login(1);
+        $this->travelTo(Carbon::parse('2026-10-11 09:29:59', 'UTC'));
+        $this->putJson('/api/employer/applications/27/status', [
+            'status' => 'accepted', 'interview_date' => 'October 10, 2026', 'interview_time' => '01:00 AM',
+        ])->assertUnprocessable()->assertJsonValidationErrors('interview_time');
+        $this->assertDatabaseHas('job_applications', ['id' => 27, 'status' => 'interview', 'interview_date' => 'October 11, 2026', 'interview_time' => '05:30 PM']);
+    }
+
+    public function test_incomplete_interview_schedule_must_be_corrected_before_hiring(): void
+    {
+        $this->login(1);
+        foreach ([['October 11, 2026', null], ['February 30, 2026', '05:30 PM'], [null, null]] as [$date, $time]) {
+            DB::table('job_applications')->where('id', 27)->update(['interview_date' => $date, 'interview_time' => $time]);
+            $this->putJson('/api/employer/applications/27/status', ['status' => 'accepted'])->assertUnprocessable()->assertJsonValidationErrors('interview_time');
+        }
     }
 }

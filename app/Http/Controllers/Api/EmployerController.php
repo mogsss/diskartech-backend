@@ -263,6 +263,11 @@ class EmployerController extends Controller
             $application->interview_ended_at = null;
         }
         \Illuminate\Support\Facades\DB::transaction(function () use ($application, $request) {
+            if ($request->status === 'accepted') {
+                // Use the locked, saved schedule; incoming fields cannot move it into the past.
+                $saved = JobApplication::whereKey($application->id)->lockForUpdate()->firstOrFail();
+                app(\App\Services\InterviewSchedule::class)->assertCanHire($saved);
+            }
             if ($request->status === 'accepted' && \Illuminate\Support\Facades\Schema::hasColumn('job_applications', 'work_schedule_slots')) {
                 app(\App\Services\StudentScheduleMatching::class)->assertCanHire($application);
             }

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\JobApplication;
-use Carbon\CarbonImmutable;
+use App\Services\InterviewSchedule;
 use Firebase\JWT\JWT;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -28,20 +28,7 @@ class InterviewCallController extends Controller
 
     private function availability(JobApplication $application, Request $request): array
     {
-        $startsAt = null;
-        try {
-            $dateParts = $application->interview_date ? date_parse($application->interview_date) : null;
-            if ($dateParts && !$dateParts['error_count'] && !$dateParts['warning_count']
-                && $dateParts['year'] && $dateParts['month'] && $dateParts['day']
-                && preg_match('/^(0?[1-9]|1[0-2]):[0-5]\d [AP]M$/', (string) $application->interview_time)) {
-                // Interview picker values are Philippine local time, never server UTC/device time.
-                $time = CarbonImmutable::createFromFormat('!h:i A', $application->interview_time, 'Asia/Manila');
-                $startsAt = CarbonImmutable::parse($application->interview_date, 'Asia/Manila')
-                    ->startOfDay()->setTime($time->hour, $time->minute);
-            }
-        } catch (\Throwable) {
-            // Incomplete/legacy malformed schedules remain unavailable.
-        }
+        $startsAt = InterviewSchedule::startsAt($application);
         $active = $application->status === 'interview' && $application->interview_type === 'online' && $startsAt;
         $ended = $application->interview_ended_at !== null;
         $available = (bool) ($active && !$ended && now()->greaterThanOrEqualTo($startsAt));
