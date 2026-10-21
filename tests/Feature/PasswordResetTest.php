@@ -74,18 +74,31 @@ class PasswordResetTest extends TestCase
         }
     }
 
-    public function test_google_admin_and_missing_accounts_receive_the_same_send_response(): void
+    public function test_unregistered_and_ineligible_accounts_cannot_request_a_reset_code(): void
     {
         $google = $this->account('student', true); $admin = $this->account('admin');
-        $expected = null;
-        foreach ([$google->email, $admin->email, 'missing@example.com'] as $email) {
-            $response = $this->postJson('/api/password/forgot', ['email' => $email])->assertOk();
-            $expected ??= $response->json();
-            $this->assertSame($expected, $response->json());
+        foreach ([
+            $google->email => 'This account uses Google sign-in. Please use Continue with Google.',
+            $admin->email => 'Password recovery is not available for this account.',
+            'missing@example.com' => 'No account is registered with this email address.',
+        ] as $email => $message) {
+            $this->postJson('/api/password/forgot', ['email' => $email])->assertUnprocessable()
+                ->assertJsonValidationErrors('email')->assertJsonPath('errors.email.0', $message);
         }
         $this->assertSame('', $this->code);
         $this->assertSame(0, DB::table('mobile_password_resets')->count());
         $this->postJson('/api/password/verify-code', ['email' => $google->email, 'code' => '123456'])->assertUnprocessable();
+    }
+
+    public function test_correcting_an_unregistered_email_can_request_a_code_without_waiting(): void
+    {
+        $user = $this->account();
+        $this->postJson('/api/password/forgot', ['email' => 'missing@example.com'])->assertUnprocessable();
+        $this->postJson('/api/password/forgot', ['email' => ' MISSING@EXAMPLE.COM '])->assertUnprocessable();
+        $this->assertSame('', $this->code);
+        $this->assertDatabaseCount('mobile_password_resets', 0);
+        $this->postJson('/api/password/forgot', ['email' => $user->email])->assertOk()->assertJsonPath('code_sent', true);
+        $this->assertDatabaseHas('mobile_password_resets', ['email' => $user->email]);
     }
 
     public function test_invalid_inputs_are_rejected_and_email_case_is_normalized(): void

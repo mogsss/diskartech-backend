@@ -46,12 +46,20 @@ class PasswordResetController extends Controller
             $wait = max(1, RateLimiter::availableIn($key));
             return response()->json(['message' => 'Please wait before requesting another code.', 'retry_after' => $wait], 429)->header('Retry-After', $wait);
         }
-        RateLimiter::hit($key, $cooldown);
         $stage = 'load_account';
         try {
-            DB::transaction(function () use ($email, $mailer, $cooldown, &$stage) {
+            DB::transaction(function () use ($email, $mailer, $cooldown, $key, &$stage) {
                 $user = $this->user($email);
-                if (!$this->eligible($user)) return;
+                if (!$user) {
+                    throw ValidationException::withMessages(['email' => 'No account is registered with this email address.']);
+                }
+                if ($user->registered_with_google) {
+                    throw ValidationException::withMessages(['email' => 'This account uses Google sign-in. Please use Continue with Google.']);
+                }
+                if (!$this->eligible($user)) {
+                    throw ValidationException::withMessages(['email' => 'Password recovery is not available for this account.']);
+                }
+                RateLimiter::hit($key, $cooldown);
                 $stage = 'load_challenge';
                 $previous = DB::table('mobile_password_resets')->where('email', $email)->first();
                 if ($previous && Carbon::parse($previous->sent_at)->addSeconds($cooldown)->isFuture()) return;
@@ -65,6 +73,8 @@ class PasswordResetController extends Controller
                     'reset_token_hash' => null, 'reset_expires_at' => null, 'sent_at' => now(),
                 ]);
             });
+        } catch (ValidationException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             // Never log the code, password, email body, or provider exception payload.
             $context = ['stage' => $stage, 'exception_type' => get_class($exception)];
@@ -73,8 +83,7 @@ class PasswordResetController extends Controller
             Log::channel('stderr')->warning('Password reset email delivery could not complete.', $context);
             return response()->json(['message' => 'Unable to send the reset email right now. Please try again later.'], 503);
         }
-        // Same response for missing accounts and Google registration; no account lookup disclosure.
-        return response()->json(['status' => 'success', 'message' => 'If this email belongs to an eligible account, a reset code will be sent. For Google registration, use Continue with Google.', 'retry_after' => $cooldown])->header('Cache-Control', 'no-store');
+        return response()->json(['status' => 'success', 'code_sent' => true, 'message' => 'A reset code has been sent to your registered email.', 'retry_after' => $cooldown])->header('Cache-Control', 'no-store');
     }
 
     public function verifyCode(Request $request)
