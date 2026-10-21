@@ -21,6 +21,7 @@ class JobApplication extends Model
         'start_date',
         'end_date',
         'work_schedule',
+        'work_schedule_slots',
         'agreed_rate',
         'special_instructions',
         'contract_terms',
@@ -35,7 +36,7 @@ class JobApplication extends Model
 
     protected function casts(): array
     {
-        return ['interview_ended_at' => 'datetime'];
+        return ['interview_ended_at' => 'datetime', 'work_schedule_slots' => 'array'];
     }
 
     public function job()

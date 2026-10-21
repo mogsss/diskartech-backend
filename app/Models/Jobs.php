@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Jobs extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\HasWeeklySchedule;
 
     protected $table = 'available_jobs';
     protected $guarded = [];

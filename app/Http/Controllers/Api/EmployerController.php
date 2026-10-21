@@ -262,7 +262,12 @@ class EmployerController extends Controller
         if ($request->status === 'interview' && $application->isDirty(['status', 'interview_date', 'interview_time', 'interview_type'])) {
             $application->interview_ended_at = null;
         }
-        $application->save();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($application, $request) {
+            if ($request->status === 'accepted' && \Illuminate\Support\Facades\Schema::hasColumn('job_applications', 'work_schedule_slots')) {
+                app(\App\Services\StudentScheduleMatching::class)->assertCanHire($application);
+            }
+            $application->save();
+        });
 
         return response()->json([
             'status' => 'success',

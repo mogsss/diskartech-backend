@@ -55,6 +55,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Job Posting (Naka-protect na para makuha ang user/employer location)
     Route::post('/jobs', [JobController::class, 'store']);
+    Route::get('/schedule-capabilities', [JobController::class, 'scheduleCapabilities']);
     Route::get('/jobs/{id}', [JobController::class, 'show']);
     Route::put('/jobs/{id}', [JobController::class, 'update']);
     Route::delete('/jobs/{id}', [JobController::class, 'destroy']);

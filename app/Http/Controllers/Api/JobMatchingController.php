@@ -63,13 +63,16 @@ class JobMatchingController extends Controller
 
             $studentDays = is_string($student->available_days) ? (json_decode($student->available_days, true) ?? []) : ($student->available_days ?? []);
             $studentTimeSlot = $student->time_slot ?? 'Whole Day';
+            $busySlots = app(\App\Services\StudentScheduleMatching::class)->busy($student);
 
             // Cache check para mabilis (sub-second) at maiwasan ang Gemini rate limit / lag
-            $cacheKey = "student_ai_match_v2_{$student->id}_" . md5(json_encode([
+            $cacheKey = "student_ai_match_v4_{$student->id}_" . md5(json_encode([
                 'skills' => $studentSkills,
                 'days' => $studentDays,
                 'slot' => $studentTimeSlot,
-                'job_ids' => $jobs->pluck('id')->toArray(),
+                'availability' => $student->schedule_slots,
+                'busy' => $busySlots,
+                'jobs' => $jobs->map(fn ($job) => [$job->id, $job->title, $job->category, $job->schedule_slots, $job->skills])->all(),
             ]));
 
             if (Cache::has($cacheKey)) {
@@ -77,11 +80,11 @@ class JobMatchingController extends Controller
                 return response()->json([
                     'status' => 'success',
                     'matched_by' => $cached['matched_by'] ?? 'cached',
-                    'matched_jobs' => $cached['matched_jobs'] ?? [],
+                    'matched_jobs' => $this->withScheduleMatches($cached['matched_jobs'] ?? [], $jobs, $student),
                 ], 200);
             }
 
-            // Prompt para kay Gemini AI (Purong Skills at Schedule lamang)
+            // Prompt para kay Gemini AI (Skills and Schedule)
             $prompt = "As an AI Job Matcher for working students, analyze the student's profile and the available jobs. " .
                       "Compute a schedule and skills match percentage (from 0 to 100) for each job based strictly on availability, time slot, and skills compatibility. " .
                       "Return the response STRICTLY as a valid JSON array without any markdown backticks or extra text, where each item contains 'id' (job id) and 'match_percentage' (integer).\n\n" .
@@ -89,6 +92,8 @@ class JobMatchingController extends Controller
                       "- Skills: " . implode(', ', $studentSkills) . "\n" .
                       "- Available Days: " . implode(', ', $studentDays) . "\n" .
                       "- Time Slot: " . $studentTimeSlot . "\n\n" .
+                      "- Exact weekly availability (Asia/Manila): " . json_encode($student->schedule_slots) . "\n\n" .
+                      "- Active work hours (already booked): " . json_encode($busySlots) . "\n\n" .
                       "Available Jobs:\n" . json_encode($jobs->map(function($j) {
                           return [
                               'id' => $j->id,
@@ -96,6 +101,7 @@ class JobMatchingController extends Controller
                               'category' => $j->category,
                               'available_days' => $j->available_days,
                               'time_slot' => $j->time_slot,
+                              'schedule_slots' => $j->schedule_slots,
                               'skills_needed' => $j->skills
                           ];
                       }));
@@ -244,9 +250,7 @@ class JobMatchingController extends Controller
                     $matchedBySource = 'fallback_math';
 
                     foreach ($jobs as $job) {
-                        $jobDays = is_string($job->available_days) ? (json_decode($job->available_days, true) ?? []) : ($job->available_days ?? []);
-                        $commonDays = array_intersect($studentDays, $jobDays);
-                        $daysMatchScore = count($jobDays) > 0 ? (count($commonDays) / count($jobDays)) * 100 : 0;
+                        $daysMatchScore = \App\Services\WeeklySchedule::compare($job->schedule_slots, $student->schedule_slots, $busySlots)['percentage'] ?? 0;
 
                         if ($daysMatchScore <= 0) {
                             continue;
@@ -275,7 +279,7 @@ class JobMatchingController extends Controller
             return response()->json([
                 'status' => 'success',
                 'matched_by' => $matchedBySource,
-                'matched_jobs' => $matchedJobs
+                'matched_jobs' => $this->withScheduleMatches($matchedJobs, $jobs, $student)
             ], 200);
 
         } catch (\Exception $e) {
@@ -290,6 +294,29 @@ class JobMatchingController extends Controller
                 'message' => 'Unable to retrieve job recommendations. Please try again.'
             ], 500);
         }
+    }
+
+    /** Refresh job details and exact-hour coverage even when AI scores are cached. */
+    private function withScheduleMatches(array $matches, \Illuminate\Support\Collection $jobs, Student $student): array
+    {
+        $jobsById = $jobs->keyBy('id');
+        $busy = app(\App\Services\StudentScheduleMatching::class)->busy($student);
+        $result = [];
+        foreach ($matches as $match) {
+            $current = $jobsById->get(data_get($match, 'id'));
+            if (!$current) continue;
+            $job = clone $current;
+            $job->match_percentage = data_get($match, 'match_percentage');
+            $job->match_source = data_get($match, 'match_source');
+            if (data_get($match, 'is_featured') !== null) $job->is_featured = data_get($match, 'is_featured');
+            $job->schedule_match = \App\Services\WeeklySchedule::compare($job->schedule_slots, $student->schedule_slots, $busy);
+            // An AI score must never claim a perfect overall match for conflicting hours.
+            if ($job->schedule_match['status'] !== 'full' && $job->match_percentage !== null) {
+                $job->match_percentage = min(99, $job->match_percentage);
+            }
+            $result[] = $job;
+        }
+        return $result;
     }
 
     private function decodeScores(string $text): array

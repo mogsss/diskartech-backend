@@ -47,6 +47,18 @@ class StudentController extends Controller
 
     public function updateAvailability(Request $request)
     {
+        abort_unless($request->user()->role === 'student', 403);
+        if ($request->exists('schedule_slots')) {
+            $slots = \App\Services\WeeklySchedule::validate($request->input('schedule_slots'));
+            $student = \Illuminate\Support\Facades\DB::transaction(function () use ($request, $slots) {
+                $student = Student::where('user_id', $request->user()->id)->lockForUpdate()->firstOrFail();
+                $student->update(['available_days' => \App\Services\WeeklySchedule::days($slots),
+                    'time_slot' => \App\Services\WeeklySchedule::summary($slots)]);
+                $student->replaceWeeklySlots($slots);
+                return $student;
+            });
+            return response()->json(['status' => 'success', 'message' => 'Availability updated successfully!', 'profile' => $student]);
+        }
         $timeSlots = ['Morning (6AM - 12PM)', 'Afternoon (1PM - 5PM)', 'Evening (6PM - 10PM)', 'Whole Day'];
         if (is_string($request->input('time_slot'))) {
             $request->merge(['time_slot' => PlainTextInput::normalize($request->input('time_slot'))]);
@@ -68,14 +80,20 @@ class StudentController extends Controller
         $schedule = implode(' & ', array_values(array_intersect($timeSlots, $slots)));
 
         $user = $request->user();
-        $student = Student::where('user_id', $user->id)->first();
-
-        if ($student) {
+        $student = \Illuminate\Support\Facades\DB::transaction(function () use ($user, $validated, $schedule) {
+            $student = Student::where('user_id', $user->id)->lockForUpdate()->first();
+            if (!$student) return null;
+            if (\Illuminate\Support\Facades\Schema::hasTable($student->weeklySlotTable()) && $student->weeklyScheduleSlots()->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['schedule_slots' => 'Please update the app to edit your per-day availability.']);
+            }
             $student->update([
                 'available_days' => $validated['days'],
                 'time_slot' => $schedule,
             ]);
+            return $student;
+        });
 
+        if ($student) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'Availability updated successfully!',

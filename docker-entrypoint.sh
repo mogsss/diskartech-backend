@@ -49,6 +49,9 @@ php artisan migrate --path=database/migrations/2026_10_16_120000_create_account_
 # Admin account deletion must keep its audit record in the deletion transaction.
 php artisan migrate --path=database/migrations/2026_10_20_120000_create_admin_user_deletions_table.php --force --no-interaction
 
+# Exact weekly hours and contract snapshots must exist before schedule writes/hiring.
+php artisan migrate --path=database/migrations/2026_10_20_180000_create_weekly_schedule_slots.php --force --no-interaction
+
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true

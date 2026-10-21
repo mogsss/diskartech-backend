@@ -13,8 +13,17 @@ use App\Services\EmployerJobQuota;
 
 class JobController extends Controller
 {
+    public function scheduleCapabilities()
+    {
+        $ready = \Illuminate\Support\Facades\Schema::hasTable('student_availability_slots')
+            && \Illuminate\Support\Facades\Schema::hasTable('job_schedule_slots')
+            && \Illuminate\Support\Facades\Schema::hasColumn('job_applications', 'work_schedule_slots');
+        return response()->json(['weekly_schedule_version' => $ready ? 1 : 0]);
+    }
+
     public function store(Request $request)
     {
+        $slots = $this->prepareWeeklySchedule($request);
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
@@ -70,23 +79,27 @@ class JobController extends Controller
         }
 
         // I-save sa database gamit ang bagong columns para sa available_days at time_slot
-        $job = app(EmployerJobQuota::class)->create($user, [
-            'user_id' => $user->id,
-            'title' => $request->title,
-            'description' => $request->description,
-            'salary' => $request->salary,
-            'salary_type' => $request->input('salary_type', 'day'),
-            'category' => $request->category, 
-            'available_days' => json_encode($request->available_days),
-            'time_slot' => $request->time_slot,
-            'requirements' => json_encode($request->requirements),
-            'skills' => json_encode($request->skills),
-            'latitude' => $employerLat,
-            'longitude' => $employerLong,
-            'status' => 'active',
-        ]);
+        $job = \Illuminate\Support\Facades\DB::transaction(function () use ($user, $request, $employerLat, $employerLong, $slots) {
+            $job = app(EmployerJobQuota::class)->create($user, [
+                'user_id' => $user->id,
+                'title' => $request->title,
+                'description' => $request->description,
+                'salary' => $request->salary,
+                'salary_type' => $request->input('salary_type', 'day'),
+                'category' => $request->category,
+                'available_days' => $slots !== null ? $request->available_days : json_encode($request->available_days),
+                'time_slot' => $request->time_slot,
+                'requirements' => json_encode($request->requirements),
+                'skills' => json_encode($request->skills),
+                'latitude' => $employerLat,
+                'longitude' => $employerLong,
+                'status' => 'active',
+            ]);
+            if ($slots !== null) $job->replaceWeeklySlots($slots);
+            return $job;
+        });
 
-        // Haversine Formula para sa 3-5km radius matching ng students
+        // Haversine Formula para sa 3-5km radius matching ng students -- spherical law of cosines—pang-compute rin ng geographic distance.
         $radius = 5; // Hanggang 5km radius
         $nearbyStudents = Student::selectRaw("id, user_id, student_name, latitude, longitude,
             (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance", 
@@ -139,6 +152,9 @@ class JobController extends Controller
         }
 
         $job->has_reported = $hasReported;
+        if ($request->user()?->role === 'student' && ($student = Student::where('user_id', $request->user()->id)->first())) {
+            $job->schedule_match = app(\App\Services\StudentScheduleMatching::class)->compare($student, $job);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -150,6 +166,7 @@ class JobController extends Controller
 
     public function update(Request $request, $id)
     {
+        $slots = $this->prepareWeeklySchedule($request);
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
@@ -172,17 +189,28 @@ class JobController extends Controller
             ], 404);
         }
 
-        $job->update([
-            'title' => $request->title,
-            'description' => $request->description,
-            'salary' => $request->salary,
-            'salary_type' => $request->input('salary_type', $job->salary_type ?? 'day'),
-            'category' => $request->category, 
-            'available_days' => json_encode($request->available_days),
-            'time_slot' => $request->time_slot,
-            'requirements' => json_encode($request->requirements),
-            'skills' => json_encode($request->skills),
-        ]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($job, $request, $slots) {
+            Jobs::whereKey($job->id)->lockForUpdate()->firstOrFail();
+            $job->refresh();
+            $storedDays = is_string($job->available_days) ? json_decode($job->available_days, true) : $job->available_days;
+            if ($slots === null && \Illuminate\Support\Facades\Schema::hasTable($job->weeklySlotTable()) && $job->weeklyScheduleSlots()->exists()
+                && ($request->available_days !== $storedDays || $request->time_slot !== $job->time_slot)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['schedule_slots' => 'Please update the app to edit this per-day schedule.']);
+            }
+            app(\App\Services\StudentScheduleMatching::class)->freezeContracts($job);
+            $job->update([
+                'title' => $request->title,
+                'description' => $request->description,
+                'salary' => $request->salary,
+                'salary_type' => $request->input('salary_type', $job->salary_type ?? 'day'),
+                'category' => $request->category,
+                'available_days' => $slots !== null ? $request->available_days : json_encode($request->available_days),
+                'time_slot' => $request->time_slot,
+                'requirements' => json_encode($request->requirements),
+                'skills' => json_encode($request->skills),
+            ]);
+            if ($slots !== null) $job->replaceWeeklySlots($slots);
+        });
 
         return response()->json([
             'status' => 'success',
@@ -211,5 +239,14 @@ class JobController extends Controller
             'status' => 'success',
             'message' => 'Job listing deleted successfully'
         ], 200);
+    }
+
+    private function prepareWeeklySchedule(Request $request): ?array
+    {
+        if (!$request->exists('schedule_slots')) return null;
+        $slots = \App\Services\WeeklySchedule::validate($request->input('schedule_slots'));
+        $request->merge(['available_days' => \App\Services\WeeklySchedule::days($slots),
+            'time_slot' => \App\Services\WeeklySchedule::summary($slots)]);
+        return $slots;
     }
 }

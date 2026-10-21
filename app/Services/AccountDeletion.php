@@ -35,6 +35,9 @@ class AccountDeletion
         DB::table('available_jobs')->whereIn('id', $jobIds)->update(['status' => 'closed', 'updated_at' => now()]);
         if (Schema::hasTable('job_postings')) DB::table('job_postings')->where('user_id', $user->id)->update(['status' => 'closed', 'updated_at' => now()]);
         if ($studentId) DB::table('saved_jobs')->where('student_id', $studentId)->delete();
+        if ($studentId && Schema::hasTable('student_availability_slots')) {
+            DB::table('student_availability_slots')->where('student_id', $studentId)->delete();
+        }
 
         foreach (['students', 'employers', 'households'] as $table) {
             $profiles = DB::table($table)->where('user_id', $user->id)->lockForUpdate()->get();

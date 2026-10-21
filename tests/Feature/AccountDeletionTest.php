@@ -102,6 +102,20 @@ class AccountDeletionTest extends TestCase
         return array_replace(['code' => $this->code, 'confirmation' => 'DELETE', 'acknowledged' => true], $overrides);
     }
 
+    public function test_deletion_clears_only_the_deleted_students_exact_availability(): void
+    {
+        (require database_path('migrations/2026_10_20_180000_create_weekly_schedule_slots.php'))->up();
+        [$user, $token] = $this->account(); [$other] = $this->account();
+        foreach ([$user, $other] as $account) DB::table('student_availability_slots')->insert([
+            'student_id' => DB::table('students')->where('user_id', $account->id)->value('id'),
+            'day_of_week' => 'Mon', 'start_time' => '09:00', 'end_time' => '12:00', 'ends_next_day' => false,
+        ]);
+        $this->send($token);
+        $this->asToken($token)->deleteJson('/api/user/account', $this->payload())->assertOk();
+        $this->assertDatabaseCount('student_availability_slots', 1);
+        $this->assertDatabaseHas('student_availability_slots', ['student_id' => DB::table('students')->where('user_id', $other->id)->value('id')]);
+    }
+
     public function test_deletion_requires_authentication_and_a_mobile_role(): void
     {
         $this->postJson('/api/user/deletion-code')->assertUnauthorized();
