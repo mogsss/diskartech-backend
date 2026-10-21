@@ -139,20 +139,87 @@ class WeeklyScheduleTest extends TestCase
         $this->putJson('/api/employer/applications/'.$first->id.'/status', ['status' => 'accepted'])->assertOk()->assertJsonPath('application.work_schedule_slots', [$this->slot('Mon', '09:00', '12:00')]);
         $job->replaceWeeklySlots([$this->slot('Tue', '18:00', '22:00')]);
         $second = JobApplication::create(['job_id' => $this->job([$this->slot('Mon', '11:00', '13:00')])->id, 'student_id' => 1, 'status' => 'viewed']);
-        $this->putJson('/api/employer/applications/'.$second->id.'/status', ['status' => 'accepted'])->assertUnprocessable();
+        $this->putJson('/api/employer/applications/'.$second->id.'/status', ['status' => 'accepted'])->assertUnprocessable()
+            ->assertJsonPath('errors.work_schedule.0', 'An active contract blocks these hours. Review its work schedule before hiring.');
         $this->assertDatabaseHas('job_applications', ['id' => $second->id, 'status' => 'viewed']);
         $third = JobApplication::create(['job_id' => $this->job([$this->slot('Mon', '12:00', '13:00')])->id, 'student_id' => 1, 'status' => 'viewed']);
         $this->putJson('/api/employer/applications/'.$third->id.'/status', ['status' => 'accepted'])->assertOk();
         $this->assertSame([$this->slot('Mon', '09:00', '12:00')], $first->fresh()->work_schedule_slots);
     }
 
-    public function test_hiring_rejects_a_class_gap_even_when_the_required_day_matches(): void
+    public function test_availability_mismatch_warns_before_applying_and_does_not_block_hiring(): void
     {
         $this->availability([$this->slot('Mon', '08:00', '12:00'), $this->slot('Mon', '13:00', '17:00')]);
         $job = $this->job([$this->slot('Mon', '10:00', '14:00')]);
-        $a = JobApplication::create(['job_id' => $job->id, 'student_id' => 1, 'status' => 'viewed']);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id])->assertStatus(409)
+            ->assertJsonPath('requires_schedule_confirmation', true)
+            ->assertJsonPath('schedule_review.required_slots', $job->schedule_slots)
+            ->assertJsonPath('schedule_review.availability_slots', Student::findOrFail(1)->schedule_slots);
+        $this->assertDatabaseCount('job_applications', 0);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id, 'acknowledge_schedule_warning' => true])->assertCreated();
+        $a = JobApplication::firstOrFail();
         $this->login(2);
-        $this->putJson('/api/employer/applications/'.$a->id.'/status', ['status' => 'accepted'])->assertUnprocessable()->assertJsonValidationErrors('work_schedule');
+        $this->putJson('/api/employer/applications/'.$a->id.'/status', ['status' => 'accepted'])->assertOk()
+            ->assertJsonPath('application.work_schedule_slots', $job->schedule_slots);
+    }
+
+    public function test_hiring_allows_extra_available_hours_and_ignores_cancelled_applications(): void
+    {
+        $days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        $this->availability(array_map(fn ($day) => $this->slot($day, '06:00', '17:00'), $days));
+        $hours = array_map(fn ($day) => $this->slot($day, '06:00', '12:00'), $days);
+        $job = $this->job($hours);
+        $cancelled = JobApplication::create(['job_id' => $job->id, 'student_id' => 1, 'status' => 'cancelled', 'work_schedule_slots' => $hours]);
+        $current = JobApplication::create(['job_id' => $job->id, 'student_id' => 1, 'status' => 'viewed']);
+        $this->login(2);
+        $this->putJson('/api/employer/applications/'.$current->id.'/status', ['status' => 'accepted'])->assertOk()
+            ->assertJsonPath('application.work_schedule_slots', $hours);
+        $this->assertSame('cancelled', $cancelled->fresh()->status);
+        $this->assertSame('accepted', $current->fresh()->status);
+    }
+
+    public function test_missing_availability_requires_confirmation_before_applying(): void
+    {
+        Student::findOrFail(1)->update(['available_days' => [], 'time_slot' => null]);
+        $job = $this->job([$this->slot()]);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id])->assertStatus(409)
+            ->assertJsonPath('schedule_review.availability_slots', []);
+        $this->assertDatabaseCount('job_applications', 0);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id, 'acknowledge_schedule_warning' => true])->assertCreated();
+    }
+
+    public function test_extra_available_hours_need_no_confirmation_and_an_acknowledgement_cannot_bypass_contract_conflicts(): void
+    {
+        $this->availability([$this->slot('Mon', '06:00', '17:00')]);
+        $job = $this->job([$this->slot('Mon', '06:00', '12:00')]);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id])->assertCreated();
+        $first = JobApplication::firstOrFail();
+        $this->login(2);
+        $this->putJson('/api/employer/applications/'.$first->id.'/status', ['status' => 'accepted'])->assertOk();
+        $secondJob = $this->job([$this->slot('Mon', '11:00', '13:00')]);
+        $this->login(1);
+        $this->postJson('/api/student/apply-job', ['job_id' => $secondJob->id])->assertStatus(409)
+            ->assertJsonFragment(['message' => 'These work hours overlap an active contract, or its hours are not confirmed. You can still apply, but the contract conflict must be resolved before you can be hired.']);
+        $this->postJson('/api/student/apply-job', ['job_id' => $secondJob->id, 'acknowledge_schedule_warning' => true])->assertCreated();
+        $second = JobApplication::where('job_id', $secondJob->id)->firstOrFail();
+        // Even after changing availability, a reserved contract hour remains blocked.
+        $this->availability([$this->slot('Tue', '06:00', '12:00')]);
+        $this->login(2);
+        $this->putJson('/api/employer/applications/'.$second->id.'/status', ['status' => 'accepted'])->assertUnprocessable()
+            ->assertJsonPath('errors.work_schedule.0', 'An active contract blocks these hours. Review its work schedule before hiring.');
+        $this->assertDatabaseHas('job_applications', ['id' => $second->id, 'status' => 'pending', 'hired_at' => null]);
+    }
+
+    public function test_warning_confirmation_does_not_bypass_verification_or_duplicate_checks(): void
+    {
+        $this->availability([$this->slot('Tue')]);
+        $job = $this->job([$this->slot()]);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id, 'acknowledge_schedule_warning' => 'yes'])->assertUnprocessable();
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id, 'acknowledge_schedule_warning' => true])->assertCreated();
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id, 'acknowledge_schedule_warning' => true])->assertStatus(400);
+        Student::findOrFail(1)->update(['isVerified' => false]);
+        $this->postJson('/api/student/apply-job', ['job_id' => $job->id, 'acknowledge_schedule_warning' => true])->assertForbidden();
+        $this->assertDatabaseCount('job_applications', 1);
     }
 
     public function test_overnight_sunday_rollover_and_touching_ranges_have_exact_coverage(): void

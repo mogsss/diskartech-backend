@@ -52,6 +52,22 @@ class StudentScheduleMatching
         return WeeklySchedule::compare($job->schedule_slots, $student->schedule_slots, $this->busy($student));
     }
 
+    public function applicationWarning(Student $student, Jobs $job): ?string
+    {
+        $slots = $job->schedule_slots;
+        if (!$slots) return null;
+        if (!$student->schedule_slots) {
+            return 'You have no saved availability to compare with this job. Review the work hours before continuing, and discuss your schedule with the hirer.';
+        }
+        if (WeeklySchedule::compare($slots, $student->schedule_slots)['status'] !== 'full') {
+            return 'Your saved availability does not cover all the work hours for this job. You can still apply, but discuss the schedule with the hirer before accepting any work.';
+        }
+        if ($this->compare($student, $job)['status'] !== 'full') {
+            return 'These work hours overlap an active contract, or its hours are not confirmed. You can still apply, but the contract conflict must be resolved before you can be hired.';
+        }
+        return null;
+    }
+
     public function assertCanHire(JobApplication $application): void
     {
         $student = Student::whereKey($application->student_id)->lockForUpdate()->firstOrFail();
@@ -59,9 +75,10 @@ class StudentScheduleMatching
         $persisted = JobApplication::whereKey($application->id)->lockForUpdate()->firstOrFail();
         $slots = $persisted->work_schedule_slots ?? $job->schedule_slots;
         if (!$slots) return; // Unparseable legacy jobs retain their existing manual hiring flow.
-        $result = WeeklySchedule::compare($slots, $student->schedule_slots, $this->busy($student, $application->id, $application->start_date, $application->end_date));
+        // Availability is advisory when applying. Only another active contract blocks hiring.
+        $result = WeeklySchedule::compare($slots, $slots, $this->busy($student, $application->id, $application->start_date, $application->end_date));
         if ($result['status'] !== 'full') {
-            throw ValidationException::withMessages(['work_schedule' => 'The student cannot cover all required hours, or has another active contract at this time. Review their availability before hiring.']);
+            throw ValidationException::withMessages(['work_schedule' => 'An active contract blocks these hours. Review its work schedule before hiring.']);
         }
         $application->work_schedule_slots = $slots;
         $application->work_schedule = WeeklySchedule::summary($slots);

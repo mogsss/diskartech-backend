@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\JobApplication;
-use App\Models\Job;
+use App\Models\Jobs;
 use App\Models\Student;
+use App\Services\StudentScheduleMatching;
+use Illuminate\Validation\ValidationException;
 
 class JobApplicationController extends Controller
 {
@@ -42,6 +44,7 @@ class JobApplicationController extends Controller
             // Validahin kung ibinigay ang job_id
             $request->validate([
                 'job_id' => 'required|exists:available_jobs,id',
+                'acknowledge_schedule_warning' => 'sometimes|boolean',
             ]);
 
             $jobId = $request->job_id;
@@ -59,6 +62,20 @@ class JobApplicationController extends Controller
                 ], 400);
             }
 
+            $job = Jobs::findOrFail($jobId);
+            $warning = app(StudentScheduleMatching::class)->applicationWarning($student, $job);
+            if ($warning && !$request->boolean('acknowledge_schedule_warning')) {
+                return response()->json([
+                    'status' => 'warning',
+                    'requires_schedule_confirmation' => true,
+                    'message' => $warning,
+                    'schedule_review' => [
+                        'required_slots' => $job->schedule_slots,
+                        'availability_slots' => $student->schedule_slots,
+                    ],
+                ], 409);
+            }
+
             // I-save ang bagong aplikasyon
             $application = JobApplication::create([
                 'job_id' => $jobId,
@@ -71,6 +88,8 @@ class JobApplicationController extends Controller
                 'message' => 'Job application submitted successfully!',
                 'data' => $application
             ], 201);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
