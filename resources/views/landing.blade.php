@@ -136,9 +136,9 @@
                 <span class="text-base font-bold tracking-tight sm:text-lg">DiskarTech<span class="text-red-700">.</span></span>
             </a>
             <nav class="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex" aria-label="Main navigation">
-                <a href="#features" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Features</a>
-                <a href="#how-it-works" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">How it works</a>
-                <a href="#for-hirers" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">For hirers</a>
+                <a href="features" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Features</a>
+                <a href="how-it-works" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">How it works</a>
+                <a href="for-hirers" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">For hirers</a>
             </nav>
             <a href="{{ $downloadUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 sm:px-5 sm:text-sm">Get the app <span class="sr-only">(opens in a new tab)</span><x-landing-icon name="arrow" class="hidden h-4 w-4 sm:block" /></a>
         </div>
@@ -147,10 +147,6 @@
     <main id="main-content">
         <section class="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-14 pt-12 sm:px-8 sm:py-20 lg:grid-cols-[1.08fr_1fr] lg:gap-10 lg:px-10 lg:py-20" aria-labelledby="hero-title">
             <div class="min-w-0">
-                <div class="mb-7 inline-flex max-w-full items-center gap-2 rounded-full border border-stone-200 bg-white/70 px-3.5 py-2 text-[11px] font-medium text-slate-600 sm:text-xs">
-                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-red-700"></span>
-                    Built for Working Student in Pinamalayan, Oriental Mindoro
-                </div>
                 <h1 id="hero-title" class="text-[clamp(2rem,10vw,2.5rem)] font-bold leading-[1.05] tracking-[-0.055em] lg:text-[clamp(2.5rem,5.5vw,4.7rem)]">
                     Your skills.<br>Your schedule.<br><span class="text-red-700">Your next move.</span>
                 </h1>
