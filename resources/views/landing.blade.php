@@ -1,5 +1,5 @@
 @php
-    $downloadUrl = 'https://expo.dev/accounts/mogsssss/projects/DiskarTech/builds/0f263222-ee8c-4791-9968-fa4a2fa16c7d';
+    $downloadUrl = 'https://expo.dev/accounts/mogsssss/projects/DiskarTech/builds/383a624e-80d4-4962-a98f-c87b33f90f54';
 @endphp
 <!DOCTYPE html>
 <html lang="en">
