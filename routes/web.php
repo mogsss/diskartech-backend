@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\CertificateWebController;
 use App\Http\Controllers\MediaController;
 use App\Services\UploadStorage;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -59,15 +58,5 @@ Route::get('/storage/{path}', function ($path) {
     abort(404);
 })->where('path', '.*');
 
-// Old bookmarks lead to the admin host. Write requests only match on that host.
-if ($adminDomain) {
-    Route::get('/login', fn () => to_route('admin.login'));
-    Route::get('/admin/{path?}', function (Request $request, ?string $path = null) {
-        // Unknown admin URLs on the admin host must not redirect to themselves.
-        abort_if($request->getHost() === config('admin.domain'), 404);
-
-        $url = rtrim(route('admin.home'), '/').$request->getRequestUri();
-
-        return redirect()->to($url);
-    })->where('path', '.*');
-}
+// Admin routes only match the configured admin hostname. Other hosts and
+// unknown paths use Laravel's normal 404 handling, including JSON API errors.

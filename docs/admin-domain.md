@@ -53,8 +53,10 @@ other deployments, rebuild them with `php artisan config:cache` and
 - Public `/` renders the landing page, including when an admin is signed in.
 - Admin `/` opens the login page or dashboard, depending on authentication.
 - Admin paths retain their existing `/admin/...` URLs on the new hostname.
-- Existing public/Render GET links under `/admin/...` redirect to the admin hostname
-  with their path and query string preserved; `/login` redirects to the admin login.
+- Public/Render `/admin`, `/admin/...`, and `/login` URLs return HTTP 404, without
+  redirecting to the admin hostname. Unknown browser pages use the DiskarTech 404 page.
+- The 404 page links back to the public homepage, or the admin homepage when viewed
+  on the configured admin hostname. API requests expecting JSON keep JSON errors.
 - Login and admin writes only execute on the admin hostname. Old pages with forms
   open before the switch should be refreshed before submitting.
 - Authentication, CSRF protection, and single-browser session ownership still apply.

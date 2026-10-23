@@ -37,11 +37,11 @@ class AdminDomainTest extends TestCase
         ]);
     }
 
-    public function test_public_landing_links_to_the_admin_host(): void
+    public function test_public_homepages_render_the_landing_without_redirecting(): void
     {
         foreach (['diskartech.world', 'diskartech-backend.onrender.com'] as $host) {
             $this->get('https://'.$host.'/')->assertOk()->assertViewIs('landing')
-                ->assertSee('href="https://admin.diskartech.world/admin/login"', false);
+                ->assertHeaderMissing('Location');
         }
     }
 
@@ -61,15 +61,29 @@ class AdminDomainTest extends TestCase
             ->assertSee('href="https://diskartech.world"', false);
     }
 
-    public function test_old_admin_bookmarks_redirect_and_preserve_filters(): void
+    public function test_admin_paths_on_public_and_render_hosts_return_the_custom_404(): void
     {
         foreach (['diskartech.world', 'diskartech-backend.onrender.com'] as $host) {
-            $this->get('https://'.$host.'/admin/reports?status=pending&page=2')
-                ->assertRedirect('https://admin.diskartech.world/admin/reports?status=pending&page=2');
-            $this->get('https://'.$host.'/login')
-                ->assertRedirect('https://admin.diskartech.world/admin/login');
+            foreach (['/admin', '/admin/login', '/admin/reports?status=pending&page=2', '/login'] as $path) {
+                $this->get('https://'.$host.$path)->assertNotFound()
+                    ->assertHeaderMissing('Location')
+                    ->assertSee('Page not found.')
+                    ->assertSee('href="https://diskartech.world"', false);
+            }
         }
-        $this->get('https://admin.diskartech.world/admin/not-a-page')->assertNotFound();
+        $this->get('https://admin.diskartech.world/admin/not-a-page')->assertNotFound()
+            ->assertSee('Page not found.')
+            ->assertSee('href="https://admin.diskartech.world"', false);
+    }
+
+    public function test_unknown_pages_return_404_and_api_requests_keep_json_errors(): void
+    {
+        $this->get('https://diskartech.world/missing-page')->assertNotFound()
+            ->assertSee('Page not found.')->assertSee('Back to home');
+        $this->getJson('https://diskartech.world/api/not-a-real-endpoint')->assertNotFound()
+            ->assertHeader('Content-Type', 'application/json')
+            ->assertDontSee('<!DOCTYPE html>', false);
+        $this->getJson('https://diskartech.world/api/student/all-jobs')->assertUnauthorized();
     }
 
     public function test_admin_domain_login_aliases_share_throttling(): void
@@ -87,9 +101,9 @@ class AdminDomainTest extends TestCase
     public function test_admin_write_requests_are_not_available_on_public_or_render_hosts(): void
     {
         foreach (['diskartech.world', 'diskartech-backend.onrender.com'] as $host) {
-            $this->post('https://'.$host.'/admin/login', [])->assertStatus(405);
-            $this->post('https://'.$host.'/login', [])->assertStatus(405);
-            $this->patch('https://'.$host.'/admin/account', [])->assertStatus(405);
+            $this->post('https://'.$host.'/admin/login', [])->assertNotFound();
+            $this->post('https://'.$host.'/login', [])->assertNotFound();
+            $this->patch('https://'.$host.'/admin/account', [])->assertNotFound();
         }
     }
 
