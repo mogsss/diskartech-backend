@@ -136,9 +136,9 @@
                 <span class="text-base font-bold tracking-tight sm:text-lg">DiskarTech<span class="text-red-700">.</span></span>
             </a>
             <nav class="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex" aria-label="Main navigation">
-                <a href="features" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Features</a>
-                <a href="how-it-works" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">How it works</a>
-                <a href="for-hirers" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">For hirers</a>
+                <a href="#features" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Features</a>
+                <a href="#how-it-works" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">How it works</a>
+                <a href="#for-hirers" class="rounded-sm hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">For hirers</a>
             </nav>
             <a href="{{ $downloadUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 sm:px-5 sm:text-sm">Get the app <span class="sr-only">(opens in a new tab)</span><x-landing-icon name="arrow" class="hidden h-4 w-4 sm:block" /></a>
         </div>
